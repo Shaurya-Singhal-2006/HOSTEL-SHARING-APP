@@ -130,6 +130,26 @@ export const getMyItems: RequestHandler = asyncHandler(async (req, res) => {
   res.json({ items: items.map((item) => serializeItem(item, user.id)) })
 })
 
+export const getPopularItems: RequestHandler = asyncHandler(async (req, res) => {
+  const user = req.currentUser!
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+  const groups = await prisma.borrowRequest.groupBy({
+    by: ['itemId'],
+    where: { createdAt: { gte: since }, item: { communityId: user.communityId, status: { not: 'hidden' } } },
+    _count: { _all: true },
+    orderBy: { _count: { itemId: 'desc' } },
+    take: 6,
+  })
+  const ids = groups.map((group) => group.itemId)
+  const records = ids.length ? await prisma.item.findMany({ where: { id: { in: ids }, communityId: user.communityId, status: { not: 'hidden' } }, include: itemInclude }) : []
+  const byId = new Map(records.map((item) => [item.id, item]))
+  const items = groups.flatMap((group) => {
+    const item = byId.get(group.itemId)
+    return item ? [{ ...serializeItem(item, user.id), requestCount: group._count._all }] : []
+  })
+  res.json({ items })
+})
+
 export const createItem: RequestHandler = asyncHandler(async (req, res) => {
   const user = req.currentUser!
   const input = createSchema.parse(req.body)

@@ -18,6 +18,7 @@ export type CurrentUser = {
   phone: string | null
   trustScore: number
   profileComplete: boolean
+  onboardingTourCompleted: boolean
 }
 
 type AuthValue = {
@@ -83,5 +84,5 @@ export function routeForUser(user: CurrentUser | null): string {
   if (!user) return '/login'
   if (!user.joinedHostel) return '/join'
   if (!profileIsComplete(user)) return '/onboarding'
-  return '/'
+  return user.onboardingTourCompleted ? '/' : '/tour'
 }

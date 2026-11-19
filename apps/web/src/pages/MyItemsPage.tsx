@@ -27,10 +27,10 @@ function MyItemCard({ item, onChanged }: { item: ItemRecord; onChanged: () => vo
   })
   return <NeuCard as="article" className="my-item-card">
     <Link className="my-item-card__photo" to={`/items/${item.id}`}><ItemVisual item={item} size="compact" /></Link>
-    <div className="my-item-card__body"><div className="my-item-card__heading"><NeuBadge tone={item.status === 'available' ? 'success' : item.status === 'hidden' ? 'neutral' : 'warning'}>{item.status === 'available' ? 'Available' : item.status === 'hidden' ? 'Hidden' : 'Lent'}</NeuBadge><Link to={`/items/${item.id}`} aria-label={`View ${item.title}`}><ArrowUpRight size={16} /></Link></div>
+    <div className="my-item-card__body"><div className="my-item-card__heading"><NeuBadge tone={item.status === 'available' ? 'success' : item.status === 'hidden' ? 'neutral' : 'warning'}>{item.status === 'available' ? 'Available' : item.status === 'hidden' ? 'Hidden' : 'Lent out'}</NeuBadge><Link to={`/items/${item.id}`} aria-label={`View ${item.title}`}><ArrowUpRight size={16} /></Link></div>
       <h2><Link to={`/items/${item.id}`}>{item.title}</Link></h2><p>{item.category} · {item.condition}</p>
       <label className="field my-item-status"><span className="field__label">Listing status</span><select className="neu-select" value={item.status} onChange={(event) => mutation.mutate(event.target.value as ItemRecord['status'])} disabled={mutation.isPending}>
-        <option value="available">Available</option><option value="lent">Lent</option><option value="hidden">Hidden</option>
+        <option value="available">Available</option><option value="lent">Lent out</option><option value="hidden">Hidden</option>
       </select></label>
       {mutation.isError && <p className="form-error" role="alert">{mutation.error.message}</p>}
       <div className="my-item-card__actions"><Link to={`/items/${item.id}/edit`} className="neu-button">Edit</Link><Link to={`/items/${item.id}`} className="neu-button neu-button--primary">View listing</Link></div>

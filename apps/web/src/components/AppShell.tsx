@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ClipboardList, HeartHandshake, Home, Package, Plus, UserRound } from 'lucide-react'
+import { CircleHelp, ClipboardList, HeartHandshake, Home, Package, Plus, UserRound } from 'lucide-react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { NeuAvatar } from './ui'
@@ -20,7 +20,7 @@ function Navigation({ mobile = false }: { mobile?: boolean }) {
   const pendingQuery = useQuery({ queryKey: ['requests', 'pending-count'], queryFn: async () => (await apiRequest<{ requests: unknown[] }>('/api/requests/mine?role=owner&status=pending')).requests.length, refetchInterval: 30_000 })
   const wantedQuery = useQuery({ queryKey: ['notifications'], queryFn: () => apiRequest<{ wantedUnreadCount: number }>('/api/notifications'), refetchInterval: 30_000 })
   return <nav className={`app-nav ${mobile ? 'app-nav--mobile' : ''}`} aria-label="Main navigation">
-    {links.map(({ label, to, icon: Icon, end }) => <NavLink key={label} to={to} end={end} className={({ isActive }) => `app-nav__link ${isActive ? 'is-active' : ''}`}>
+    {links.map(({ label, to, icon: Icon, end }) => <NavLink key={label} to={to} end={end} title={mobile ? undefined : label} className={({ isActive }) => `app-nav__link ${isActive ? 'is-active' : ''}`}>
       <Icon size={19} strokeWidth={1.8} /><span>{label}</span>{label === 'Requests' && (pendingQuery.data ?? 0) > 0 && <span className="nav-count">{pendingQuery.data}</span>}{label === 'Wanted' && (wantedQuery.data?.wantedUnreadCount ?? 0) > 0 && <span className="nav-count">{wantedQuery.data?.wantedUnreadCount}</span>}
     </NavLink>)}
   </nav>
@@ -37,6 +37,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <p className="sidebar-copy">The little things we share<br />make this place home.</p>
       <Navigation />
       <Link to="/my-items" className={`sidebar-secondary ${location.pathname === '/my-items' ? 'is-active' : ''}`}><Package size={18} />My items</Link>
+      <Link to="/help" title="Help and answers" className={`sidebar-secondary ${location.pathname === '/help' ? 'is-active' : ''}`}><CircleHelp size={18} />Help and answers</Link>
       <div className="sidebar-notifications"><NotificationBell compact /></div>
       <Link className="sidebar-person" to="/profile"><NeuAvatar name={user.name} size="sm" src={user.avatarUrl} /><span><strong>{user.name}</strong><small>{formatLocation(user.floor, user.room)}</small></span></Link>
     </aside>

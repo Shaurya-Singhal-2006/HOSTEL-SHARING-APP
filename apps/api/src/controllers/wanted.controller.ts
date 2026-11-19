@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { asyncHandler } from '../lib/async-handler.js'
 import { HttpError } from '../lib/errors.js'
 import { prisma } from '../lib/prisma.js'
+import { env } from '../config/env.js'
 import { ITEM_CATEGORIES, sanitizeText } from '../services/item.service.js'
 
 const idSchema = z.string().uuid()
@@ -67,13 +68,23 @@ export const createWanted: RequestHandler = asyncHandler(async (req, res) => {
   let post
   try {
     post = await prisma.$transaction(async (tx) => {
-      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${user.id}))`)
+      // Lock the user's row while checking the open-post cap. Returning the UUID
+      // avoids PostgreSQL's `void` return type from advisory-lock functions.
+      await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT id FROM users WHERE id = ${user.id}::uuid FOR UPDATE`)
       const openCount = await tx.wantedPost.count({ where: { authorId: user.id, status: 'open' } })
-      if (openCount >= 5) throw new HttpError(409, 'You can have up to five open wanted posts.')
+      if (openCount >= env.WANTED_MAX_OPEN_POSTS) {
+        throw new HttpError(409, `You can have up to ${env.WANTED_MAX_OPEN_POSTS} open wanted posts.`)
+      }
       return tx.wantedPost.create({ data: { authorId: user.id, communityId: user.communityId, title: input.title, category: input.category, note: input.note ?? '', neededBy: input.neededBy ? day(input.neededBy) : null }, include: { author: { select: authorSelect }, ...responseCount, responses: { where: { responderId: user.id }, select: { responderId: true } } } })
     })
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2010') throw new HttpError(503, 'Could not create your wanted post right now. Please retry.')
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2010') throw new HttpError(503, 'The wanted post could not be saved because the database could not lock your account. Please retry.')
+      if (error.code === 'P2021' || error.code === 'P2022') throw new HttpError(503, 'The wanted board database is out of date. Apply the pending Prisma migrations and restart the API.')
+    }
+    if (error instanceof Prisma.PrismaClientInitializationError) {
+      throw new HttpError(503, 'The wanted board database is unavailable. Please try again shortly.')
+    }
     throw error
   }
   res.status(201).json({ post: serializePost(post, user.id) })

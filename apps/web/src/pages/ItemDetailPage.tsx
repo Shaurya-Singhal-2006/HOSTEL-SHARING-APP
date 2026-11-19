@@ -36,6 +36,7 @@ export default function ItemDetailPage() {
   const location = formatLocation(item.owner.floor, item.owner.room)
 
   return <div className="detail-page">
+    <nav className="breadcrumbs" aria-label="Breadcrumb"><Link to="/">Home</Link><span aria-hidden="true">/</span>{item.isOwner?<Link to="/my-items">My items</Link>:<Link to="/">On the shelf</Link>}<span aria-hidden="true">/</span><span aria-current="page">{item.title}</span></nav>
     <Link to={item.isOwner ? '/my-items' : '/'} className="back-link"><ArrowLeft size={16} />Back to listings</Link>
     <div className="detail-layout">
       <NeuCard className="detail-gallery">
@@ -59,7 +60,7 @@ export default function ItemDetailPage() {
           <div className="detail-owner__info"><span className="section-kicker">SHARED BY</span><strong>{item.owner.name}</strong><small><MapPin size={13} />{location || 'Hostel member'}</small></div>
           <div className="detail-owner__trust"><ShieldCheck size={17} /><strong>{item.owner.trustScore}</strong><small>trust</small></div>
         </NeuCard>
-        {item.isOwner ? <div className="detail-owner-actions"><Link to={`/items/${item.id}/edit`} className="neu-button neu-button--primary"><Edit3 size={16} />Edit item</Link><NeuButton onClick={() => { setDeleteError(''); if (window.confirm('Delete this listing and its photos?')) deleteMutation.mutate() }} disabled={deleteMutation.isPending} icon={<Trash2 size={16} />}>{deleteMutation.isPending ? 'Deleting…' : 'Delete'}</NeuButton></div> : item.status === 'available' ? <NeuButton variant="primary" className="detail-request" onClick={() => setRequestOpen(true)}>Request to borrow</NeuButton> : <p className="detail-unavailable">{item.status === 'lent' ? 'Currently lent' : 'This item is not available right now.'}</p>}
+        {item.isOwner ? <div className="detail-owner-actions"><Link to={`/items/${item.id}/edit`} className="neu-button neu-button--primary"><Edit3 size={16} />Edit item</Link><NeuButton onClick={() => { setDeleteError(''); if (window.confirm('Delete this listing and its photos?')) deleteMutation.mutate() }} disabled={deleteMutation.isPending} icon={<Trash2 size={16} />}>{deleteMutation.isPending ? 'Deleting…' : 'Delete'}</NeuButton></div> : item.status === 'available' ? <NeuButton variant="primary" className="detail-request" onClick={() => setRequestOpen(true)}>Borrow this</NeuButton> : <p className="detail-unavailable">{item.status === 'lent' ? 'Lent out right now' : 'This item is not available right now.'}</p>}
         <RequestBorrowModal item={item} open={requestOpen} onClose={() => setRequestOpen(false)} />
         {deleteError && <p className="form-error" role="alert">{deleteError}</p>}
       </section>
@@ -91,9 +92,9 @@ function RequestBorrowModal({ item, open, onClose }: { item: ItemRecord; open: b
     {success ? <div className="request-modal-success"><p>Your request is with the owner. We’ll let you know when they respond.</p><NeuButton variant="primary" onClick={() => { onClose(); setSuccess(false) }}>Done</NeuButton></div> : <form className="request-modal-form" onSubmit={(event) => { event.preventDefault(); setError(''); if (toDate < fromDate) { setError('The end date must be on or after the start date.'); return } mutation.mutate() }}>
       <div className="item-form__row"><NeuInput label="From" type="date" value={fromDate} min={todayString} onChange={(event) => { setFromDate(event.target.value); if (toDate < event.target.value) setToDate(event.target.value) }} required /><NeuInput label="To" type="date" value={toDate} min={fromDate} max={maxToDate} onChange={(event) => setToDate(event.target.value)} required /></div>
       <label className="field"><span className="field__label">Note (optional)</span><textarea className="neu-textarea" rows={3} maxLength={300} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Add a short note for the owner" /></label>
-      <p className="request-modal-hint">Up to {item.maxLendDays} days. Your contact details are shared only if the owner accepts.</p>
+      <p className="request-modal-hint">Choose the days you need it. Up to {item.maxLendDays} days. Your phone number stays private until the owner accepts.</p>
       {error && <p className="form-error" role="alert">{error}</p>}
-      <NeuButton variant="primary" type="submit" disabled={mutation.isPending}>{mutation.isPending ? 'Sending…' : 'Send request'}</NeuButton>
+      <NeuButton variant="primary" type="submit" disabled={mutation.isPending}>{mutation.isPending ? 'Sending…' : 'Ask to borrow'}</NeuButton>
     </form>}
   </NeuModal>
 }

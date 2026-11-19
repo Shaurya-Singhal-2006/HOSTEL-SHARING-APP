@@ -12,7 +12,7 @@ export default function ItemCard({ item }: { item: ItemRecord }) {
     <Link to={`/items/${item.id}`} className="listing-card__link" aria-label={`View ${item.title}`}>
       <div className="listing-card__photo">
         <ItemVisual item={item} size="card" />
-        <NeuBadge tone={item.status === 'available' ? 'success' : item.status === 'hidden' ? 'neutral' : 'warning'}>{item.status === 'available' ? 'Available' : item.status === 'hidden' ? 'Hidden' : 'On loan'}</NeuBadge>
+        <NeuBadge tone={item.status === 'available' ? 'success' : item.status === 'hidden' ? 'neutral' : 'warning'}>{item.status === 'available' ? 'Available' : item.status === 'hidden' ? 'Hidden' : 'Lent out'}</NeuBadge>
       </div>
       <div className="listing-card__body">
         <div className="listing-card__meta"><span>{item.category}</span><span>{item.condition}</span></div>

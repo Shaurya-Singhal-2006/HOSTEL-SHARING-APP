@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ThumbsDown, ThumbsUp, X } from 'lucide-react'
+import { Check, CheckCircle2, Circle, Package, RotateCcw, ThumbsDown, ThumbsUp, X } from 'lucide-react'
 import { apiRequest } from '../api/client'
 import ItemVisual from '../components/ItemVisual'
 import { NeuBadge, NeuButton, NeuCard, NeuChip, NeuEmptyState, NeuModal, NeuSkeleton } from '../components/ui'
 import { formatLocation } from '../items/location'
 import ReputationButton from '../components/ReputationButton'
+import { Link } from 'react-router-dom'
 
 type RequestData = {
   id: string; item: { id: string; title: string; category: string; photos: Array<{ path: string; url: string; thumbnailUrl: string }> }
@@ -14,20 +15,32 @@ type RequestData = {
   other: { id: string; name: string; floor: number | null; room: string | null; phone?: string | null; trustScore?: number }; isBorrower: boolean; myRated:boolean; otherRated:boolean
 }
 type Role = 'borrower' | 'owner'
-const filters = ['All', 'Pending', 'Accepted', 'Returned', 'Declined/Cancelled'] as const
+const filters = ['All', 'Waiting', 'Accepted', 'Returned', 'Not going ahead'] as const
+const flowSteps = [{label:'Requested',icon:CheckCircle2},{label:'Accepted',icon:CheckCircle2},{label:'Picked up',icon:Package},{label:'Returned',icon:RotateCcw}]
+
+function requestMessage(request:RequestData) {
+  if(request.status==='pending')return request.isBorrower?`Waiting for ${request.other.name} to say yes.`:'Waiting for you to decide on this request.'
+  if(request.status==='accepted')return `Accepted. Agree on pickup, then bring it back by ${new Date(`${request.toDate}T12:00:00`).toLocaleDateString(undefined,{day:'numeric',month:'short'})}.`
+  if(request.status==='returned')return 'Returned. Thanks for sharing with your neighbour.'
+  if(request.status==='declined')return 'This request did not go ahead.'
+  if(request.status==='cancelled')return 'This request was cancelled.'
+  return ''
+}
+function shortDate(value:string){return new Date(`${value}T12:00:00`).toLocaleDateString(undefined,{day:'numeric',month:'short'})}
+function statusLabel(request:RequestData) { return request.status==='pending'?(request.isBorrower?'Waiting for owner':'Needs your reply'):({accepted:'Accepted',returned:'Returned',declined:'Didn’t go ahead',cancelled:'Cancelled'} as const)[request.status] }
 
 export default function RequestsPage() {
   const [role, setRole] = useState<Role>('borrower')
   const [filter, setFilter] = useState<(typeof filters)[number]>('All')
   const query = useQuery({ queryKey: ['requests', role], queryFn: async () => (await apiRequest<{ requests: RequestData[] }>(`/api/requests/mine?role=${role}`)).requests })
-  const requests = (query.data ?? []).filter((request) => filter === 'All' || (filter === 'Declined/Cancelled' ? ['declined', 'cancelled'].includes(request.status) : request.status === filter.toLowerCase()))
+  const requests = (query.data ?? []).filter((request) => filter === 'All' || (filter === 'Not going ahead' ? ['declined', 'cancelled'].includes(request.status) : request.status === (filter==='Waiting'?'pending':filter.toLowerCase())))
   return <div className="requests-page">
-    <div className="page-heading"><p className="section-kicker">THE BORROWING LOOP</p><h1>Requests</h1><p>Keep track of what you asked for and what neighbours need.</p></div>
-    <div className="request-tabs"><NeuChip selected={role === 'borrower'} onClick={() => { setRole('borrower'); setFilter('All') }}>I asked</NeuChip><NeuChip selected={role === 'owner'} onClick={() => { setRole('owner'); setFilter('All') }}>People asked me</NeuChip></div>
+    <div className="page-heading"><h1>Borrowing</h1><p>See what’s waiting, accepted, or ready to come home.</p></div>
+    <div className="request-tabs"><NeuChip selected={role === 'borrower'} onClick={() => { setRole('borrower'); setFilter('All') }}>I asked to borrow</NeuChip><NeuChip selected={role === 'owner'} onClick={() => { setRole('owner'); setFilter('All') }}>Requests for my items</NeuChip></div>
     <div className="request-filter-row">{filters.map((value) => <NeuChip key={value} selected={filter === value} onClick={() => setFilter(value)}>{value}</NeuChip>)}</div>
     {query.isPending && <div className="request-list">{[0, 1, 2].map((id) => <NeuCard className="request-card" key={id}><NeuSkeleton className="request-card__visual" /><NeuSkeleton /><NeuSkeleton /></NeuCard>)}</div>}
     {query.isError && <NeuCard className="state-panel"><h2>Requests didn’t load</h2><p>{query.error.message}</p><NeuButton variant="primary" onClick={() => { void query.refetch() }}>Try again</NeuButton></NeuCard>}
-    {query.isSuccess && requests.length === 0 && <NeuCard className="state-panel"><NeuEmptyState title="No requests yet" description="Requests for items you ask to borrow or share will appear here." /></NeuCard>}
+    {query.isSuccess && requests.length === 0 && <NeuCard className="state-panel"><NeuEmptyState title={query.data?.length?'Nothing in this group yet':'No requests yet'} description={query.data?.length?'Try another filter to see more requests.':role==='borrower'?'Find something useful your neighbours have listed.':'Requests to borrow your items will appear here.'} action={<Link to={role==='borrower'?'/':'/items/new'} className="neu-button neu-button--primary">{role==='borrower'?'Find something':'List an item'}</Link>} /></NeuCard>}
     {requests.length > 0 && <div className="request-list">{requests.map((request) => <RequestCard key={request.id} request={request} />)}</div>}
   </div>
 }
@@ -48,9 +61,11 @@ function RequestCard({ request }: { request: RequestData }) {
   return <NeuCard as="article" className="request-card">
     <div className="request-card__visual"><ItemVisual item={request.item} size="compact" /></div>
     <div className="request-card__body">
-      <div className="request-card__top"><NeuBadge tone={statusTone}>{request.status}</NeuBadge>{request.isOverdue && <NeuBadge tone="danger">Overdue</NeuBadge>}</div>
+      <div className="request-card__top"><NeuBadge tone={statusTone}>{statusLabel(request)}</NeuBadge>{request.isOverdue && <NeuBadge tone="danger">Overdue — past return date</NeuBadge>}</div>
       <h2>{request.item.title}</h2>
-      <p className="request-card__dates">{request.fromDate} – {request.toDate}</p>
+      <p className="request-card__dates">{shortDate(request.fromDate)} – {shortDate(request.toDate)}</p>
+      <RequestProgress request={request}/>
+      <p className="request-explanation">{requestMessage(request)}</p>
       <p className="request-card__other">{request.isBorrower ? 'Owner' : 'Requested by'}: <strong><ReputationButton userId={request.other.id} name={request.other.name}/></strong><span>{location}</span></p>
       {request.note && <p className="request-card__note">“{request.note}”</p>}
       {request.declineReason && <p className="request-card__note">Reason: {request.declineReason}</p>}
@@ -59,10 +74,19 @@ function RequestCard({ request }: { request: RequestData }) {
       {action.isError && <p className="form-error" role="alert">{action.error.message}</p>}
       <div className="request-card__actions">
         {!request.isBorrower && request.status === 'pending' && <><NeuButton variant="primary" onClick={() => action.mutate({ name: 'accept' })} disabled={action.isPending} icon={<Check size={15} />}>Accept</NeuButton><NeuButton onClick={() => setDeclineOpen(true)} disabled={action.isPending} icon={<X size={15} />}>Decline</NeuButton></>}
-        {!request.isBorrower && request.status === 'accepted' && <NeuButton variant="primary" onClick={() => { if (window.confirm('Mark this item as returned?')) action.mutate({ name: 'return' }) }} disabled={action.isPending}>Mark returned</NeuButton>}
+        {!request.isBorrower && request.status === 'accepted' && <NeuButton variant="primary" onClick={() => { if (window.confirm('Has the item been returned?')) action.mutate({ name: 'return' }) }} disabled={action.isPending}>Confirm return</NeuButton>}
         {request.isBorrower && ['pending', 'accepted'].includes(request.status) && <NeuButton onClick={() => { if (window.confirm('Cancel this borrow request?')) action.mutate({ name: 'cancel' }) }} disabled={action.isPending}>Cancel request</NeuButton>}
       </div>
     </div>
     <NeuModal open={declineOpen} onClose={() => setDeclineOpen(false)} title="Decline request"><form className="request-modal-form" onSubmit={(event) => { event.preventDefault(); action.mutate({ name: 'decline', body: { reason } }) }}><label className="field"><span className="field__label">Reason (optional)</span><textarea className="neu-textarea" maxLength={200} rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></label>{action.isError && <p className="form-error" role="alert">{action.error.message}</p>}<NeuButton variant="primary" type="submit" disabled={action.isPending}>{action.isPending ? 'Declining…' : 'Decline request'}</NeuButton></form></NeuModal>
   </NeuCard>
+}
+
+function RequestProgress({request}:{request:RequestData}) {
+  const active=request.status==='pending'?0:request.status==='accepted'?1:3
+  const complete=request.status==='returned'?3:request.status==='accepted'?0:request.status==='pending'?-1:0
+  const stopped=['declined','cancelled'].includes(request.status)
+  return <ol className={`request-progress ${stopped?'is-stopped':''}`} aria-label={`Request progress: ${statusLabel(request)}`}>
+    {flowSteps.map((step,index)=>{const state=stopped?(index===0?'done':'upcoming'):complete>=index?'done':index===active?'current':'upcoming';const Icon=state==='done'?CheckCircle2:state==='current'?Circle:step.icon;return <li key={step.label} className={`request-progress__step is-${state}`} aria-current={index===active&&!stopped?'step':undefined}><Icon size={17}/><span>{step.label}</span></li>})}
+  </ol>
 }

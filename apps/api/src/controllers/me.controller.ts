@@ -10,6 +10,7 @@ const updateProfileSchema = z.object({
   floor: z.number().int().min(0).max(5).optional(),
   room: z.string().trim().toUpperCase().regex(/^[A-Z][0-9]{1,3}$/, 'Enter your room like B2 or B16').optional(),
   phone: z.string().trim().max(30).nullable().optional(),
+  onboardingTourCompleted: z.boolean().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, 'Provide at least one profile field.')
 
 export const getMe: RequestHandler = (req, res, next) => {
@@ -22,11 +23,12 @@ export const patchMe: RequestHandler = asyncHandler(async (req, res) => {
   const currentUser = req.currentUser
   if (!currentUser) throw new HttpError(401, 'Sign in to continue.')
 
-  const data: { name?: string; floor?: number; room?: string; phone?: string | null } = {}
+  const data: { name?: string; floor?: number; room?: string; phone?: string | null; onboardingTourCompleted?: boolean } = {}
   if (patch.name !== undefined) data.name = patch.name
   if (patch.floor !== undefined) data.floor = patch.floor
   if (patch.room !== undefined) data.room = patch.room.trim().toUpperCase()
   if (patch.phone !== undefined) data.phone = patch.phone || null
+  if (patch.onboardingTourCompleted !== undefined) data.onboardingTourCompleted = patch.onboardingTourCompleted
 
   const user = await prisma.user.update({ where: { id: currentUser.id }, data })
   return res.json({ user: toCurrentUser(user) })

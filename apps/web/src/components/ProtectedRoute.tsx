@@ -1,4 +1,4 @@
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { profileIsComplete, routeForUser, useAuth } from '../auth/AuthProvider'
 import { NeuButton, NeuCard, NeuSkeleton } from './ui'
@@ -7,6 +7,7 @@ export type ProtectedPage = 'login' | 'join' | 'onboarding' | 'profile' | 'callb
 
 export default function ProtectedRoute({ page, children }: { page: ProtectedPage; children?: ReactNode }) {
   const { user, isLoading, error, refresh } = useAuth()
+  const location = useLocation()
   if (isLoading) return <AuthState title="Checking your sign-in" />
   if (error) return <AuthState title="We couldn’t reach your account" message={error.message} onRetry={() => { void refresh().catch(() => {}) }} />
 
@@ -28,6 +29,7 @@ export default function ProtectedRoute({ page, children }: { page: ProtectedPage
     if (!user) return <Navigate to="/login" replace />
     if (!user.joinedHostel) return <Navigate to="/join" replace />
     if (!profileIsComplete(user)) return <Navigate to="/onboarding" replace />
+    if (!user.onboardingTourCompleted && location.pathname !== '/tour') return <Navigate to="/tour" replace />
     return <>{children}</>
   }
   if (page === 'home' || page === 'callback') return <Navigate to={routeForUser(user)} replace />

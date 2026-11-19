@@ -21,6 +21,17 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, req, res, _nex
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
     return res.status(409).json({ error: 'That account is already linked.' })
   }
+  if (req.baseUrl === '/api/wanted' && error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === 'P2010') {
+      return res.status(503).json({ error: 'The wanted board database query failed. Please retry; if it continues, check the API database log for Prisma P2010.' })
+    }
+    if (error.code === 'P2021' || error.code === 'P2022') {
+      return res.status(503).json({ error: 'The wanted board database is out of date. Apply pending Prisma migrations and restart the API.' })
+    }
+  }
+  if (req.baseUrl === '/api/wanted' && error instanceof Prisma.PrismaClientInitializationError) {
+    return res.status(503).json({ error: 'The wanted board database is unavailable. Please try again shortly.' })
+  }
 
   console.error('Unhandled API error:', error)
   return res.status(500).json({ error: 'Something went wrong. Please try again.' })

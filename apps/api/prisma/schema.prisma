@@ -60,6 +60,7 @@ model User {
   room        String?
   phone       String?
   trustScore  Int              @default(0) @map("trust_score")
+  onboardingTourCompleted Boolean @default(false) @map("onboarding_tour_completed")
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   community   Community        @relation(fields: [communityId], references: [id], onDelete: Restrict)
   items       Item[]
@@ -71,6 +72,7 @@ model User {
   responses   WantedResponse[]
   ratingsFrom Rating[]         @relation("RatingFrom")
   ratingsTo   Rating[]         @relation("RatingTo")
+  feedback    Feedback[]
   @@index([communityId])
   @@index([communityId, floor])
   @@map("users")
@@ -151,7 +153,7 @@ model WantedPost {
   communityId String           @map("community_id") @db.Uuid
   authorId    String           @map("author_id") @db.Uuid
   title       String
-  category    String
+  category    String           @default("Other")
   note        String
   neededBy    DateTime?        @map("needed_by") @db.Date
   status      WantedStatus     @default(open)
@@ -198,4 +200,15 @@ model Rating {
   @@index([toUserId])
   @@index([toUserId, createdAt(sort: Desc)])
   @@map("ratings")
+}
+
+model Feedback {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  message   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt(sort: Desc)])
+  @@map("feedback")
 }

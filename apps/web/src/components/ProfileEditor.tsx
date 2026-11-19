@@ -49,13 +49,13 @@ export default function ProfileEditor({
   }
 
   return <form className="profile-form" onSubmit={submit}>
-    <NeuInput label="Name" value={values.name} onChange={(event) => update('name', event.target.value)} autoComplete="name" required maxLength={80} />
+    <NeuInput label="Name" value={values.name} onChange={(event) => update('name', event.target.value)} autoComplete="name" required maxLength={80} hint="This is the name neighbours will see." />
     <div className="profile-form__row">
       <label className="field"><span className="field__label">Floor</span>
         <select className="neu-select" value={values.floor} onChange={(event) => update('floor', event.target.value)} required>
           <option value="" disabled>Select floor</option>
           {[0, 1, 2, 3, 4, 5].map((floor) => <option key={floor} value={floor}>{floor === 0 ? 'Basement' : `Floor ${floor}`}</option>)}
-        </select>
+        </select><span className="field__message">Helps neighbours find you for pickup.</span>
       </label>
       <NeuInput label="Room" value={values.room} onInvalid={(event) => event.currentTarget.setCustomValidity('Enter your room like B2 or B16')} onChange={(event) => { const value = event.target.value.toUpperCase(); event.currentTarget.setCustomValidity(/^[A-Z][0-9]{1,3}$/.test(value) ? '' : 'Enter your room like B2 or B16'); update('room', value) }} autoComplete="off" required maxLength={4} placeholder="e.g. B16" pattern="[A-Z][0-9]{1,3}" hint="Enter your room like B2 or B16" />
     </div>

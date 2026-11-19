@@ -12,6 +12,7 @@ declare global {
         room: string | null
         phone: string | null
         trustScore: number
+        onboardingTourCompleted: boolean
       }
     }
   }

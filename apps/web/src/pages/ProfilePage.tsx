@@ -30,7 +30,7 @@ export default function ProfilePage() {
 
   return <div className="profile-screen profile-screen--in-app">
     <div className="profile-content">
-      <div className="profile-heading"><div><h1>Your profile</h1><p>Make it easy for your hostel neighbours to borrow with confidence.</p></div><div className="profile-heading__actions"><Link to="/my-items" className="neu-button">My items</Link><NeuButton onClick={async () => {
+      <div className="profile-heading"><div><h1>Your profile</h1><p>Make it easy for your hostel neighbours to borrow with confidence.</p></div><div className="profile-heading__actions"><Link to="/tour?replay=1" className="neu-button">Replay the tour</Link><Link to="/help" className="neu-button">Help and answers</Link><Link to="/my-items" className="neu-button">My items</Link><NeuButton onClick={async () => {
       setLogoutError('')
       try {
         await logout()
@@ -48,7 +48,7 @@ export default function ProfilePage() {
           <div className="profile-detail"><MapPin size={17} /><span>{formatLocation(user.floor, user.room)}</span></div>
           <div className="profile-detail"><ShieldCheck size={17} /><span>Member of LendLoop Hostel</span></div>
           {reputation.data&&<div className="profile-reputation"><strong>Trust score {reputation.data.trustScore}</strong><span><ThumbsUp size={14}/>{reputation.data.thumbsUp} · <ThumbsDown size={14}/>{reputation.data.thumbsDown}</span><span>{reputation.data.totalCompletedLends} completed lends · {reputation.data.totalBorrows} borrows</span><div>{reputation.data.badges.map(b=><NeuBadge key={b} tone={b==='Reliable'||b==='Top lender'?'success':'neutral'}>{b}</NeuBadge>)}</div></div>}
-          <div className="profile-summary__note">Your phone number stays private and is only shared when a borrow request is accepted.</div>
+          <div className="profile-summary__note">Your phone stays private. It’s shared after a borrow request is accepted, or with neighbours who respond to your open Wanted posts.</div>
           {logoutError && <p className="auth-error" role="alert">{logoutError}</p>}
         </NeuCard>
         <NeuCard className="profile-edit-card">

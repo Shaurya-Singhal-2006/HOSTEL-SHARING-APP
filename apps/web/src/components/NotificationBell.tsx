@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bell } from 'lucide-react'
+import { Bell, CheckCircle2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { apiRequest } from '../api/client'
 import ItemVisual from './ItemVisual'
@@ -18,7 +18,7 @@ export default function NotificationBell({ compact = false }: { compact?: boolea
     {open && <div className="notification-popover" role="region" aria-label="Recent notifications"><div className="notification-popover__heading"><strong>Notifications</strong><Link to="/requests" onClick={() => setOpen(false)}>Requests</Link></div>
       {query.isPending && <p className="notification-empty">Loading…</p>}
       {query.isError && <p className="notification-empty">Notifications could not load.</p>}
-      {query.data?.notifications.length === 0 && <p className="notification-empty">You’re all caught up.</p>}
+      {query.data?.notifications.length === 0 && <div className="notification-empty"><CheckCircle2 size={19}/><p>You’re all caught up.</p><Link to="/requests" onClick={()=>setOpen(false)}>See your requests</Link></div>}
       {query.data?.notifications.map((notice) => <Link to={notice.wantedPostId ? `/wanted/${notice.wantedPostId}` : `/requests?focus=${notice.requestId}`} onClick={() => setOpen(false)} className={`notification-row ${notice.read ? '' : 'is-unread'}`} key={notice.id}>{notice.item&&<ItemVisual item={notice.item} size="compact" />}<span><strong>{notice.message}</strong><small>{new Date(notice.createdAt).toLocaleString()}</small></span></Link>)}
     </div>}
   </div>

@@ -15,7 +15,7 @@ export const requireAuth: RequestHandler = asyncHandler(async (req, res, next) =
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
-      id: true, communityId: true, name: true, email: true, avatarUrl: true,
+      id: true, communityId: true, name: true, email: true, avatarUrl: true, onboardingTourCompleted: true,
       joinedHostel: true, floor: true, room: true, phone: true, trustScore: true,
     },
   })

@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { apiRequest } from '../api/client'
-import { ME_QUERY_KEY, type CurrentUser, useAuth } from '../auth/AuthProvider'
+import { ME_QUERY_KEY, routeForUser, type CurrentUser, useAuth } from '../auth/AuthProvider'
 import AuthFrame from '../components/AuthFrame'
 import ProfileEditor from '../components/ProfileEditor'
 
@@ -22,7 +22,7 @@ export default function OnboardingPage() {
           body: { name: values.name, floor: Number(values.floor), room: values.room, phone: values.phone || null },
         })
         queryClient.setQueryData(ME_QUERY_KEY, result.user)
-        navigate('/', { replace: true })
+        navigate(routeForUser(result.user), { replace: true })
       }}
     />
   </AuthFrame>

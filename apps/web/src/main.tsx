@@ -17,6 +17,8 @@ import MyItemsPage from './pages/MyItemsPage'
 import WantedPage from './pages/WantedPage'
 import AppShell from './components/AppShell'
 import RequestsPage from './pages/RequestsPage'
+import TourPage from './pages/TourPage'
+import HelpPage from './pages/HelpPage'
 import './styles.css'
 
 const queryClient = new QueryClient({
@@ -33,6 +35,8 @@ function App() {
             <Route path="/login" element={<ProtectedRoute page="login"><LoginPage /></ProtectedRoute>} />
             <Route path="/join" element={<ProtectedRoute page="join"><JoinPage /></ProtectedRoute>} />
             <Route path="/onboarding" element={<ProtectedRoute page="onboarding"><OnboardingPage /></ProtectedRoute>} />
+            <Route path="/tour" element={<ProtectedRoute page="app"><TourPage /></ProtectedRoute>} />
+            <Route path="/help" element={<ProtectedRoute page="app"><AppShell><HelpPage /></AppShell></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute page="profile"><AppShell><ProfilePage /></AppShell></ProtectedRoute>} />
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
             <Route path="/" element={<ProtectedRoute page="app"><AppShell><HomePage /></AppShell></ProtectedRoute>} />

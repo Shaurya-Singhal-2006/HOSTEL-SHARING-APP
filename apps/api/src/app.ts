@@ -15,6 +15,7 @@ import { requestsRouter } from './routes/requests.routes.js'
 import { notificationsRouter } from './routes/notifications.routes.js'
 import { wantedRouter } from './routes/wanted.routes.js'
 import { ratingsRouter } from './routes/ratings.routes.js'
+import { feedbackRouter } from './routes/feedback.routes.js'
 
 export const app = express()
 
@@ -44,6 +45,7 @@ app.use('/api/requests', requestsRouter)
 app.use('/api/notifications', notificationsRouter)
 app.use('/api/wanted', wantedRouter)
 app.use('/api/ratings', ratingsRouter)
+app.use('/api/feedback', feedbackRouter)
 
 app.use(notFoundHandler)
 app.use(errorHandler)

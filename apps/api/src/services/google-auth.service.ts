@@ -63,6 +63,7 @@ export function toCurrentUser(user: {
   room: string | null
   phone: string | null
   trustScore: number
+    onboardingTourCompleted: boolean
 }) {
   const profileComplete = Boolean(user.name.trim() && user.floor !== null && /^[A-Z][0-9]{1,3}$/.test(user.room?.trim().toUpperCase() ?? ''))
   return {
@@ -76,6 +77,7 @@ export function toCurrentUser(user: {
     room: user.room,
     phone: user.phone,
     trustScore: user.trustScore,
+    onboardingTourCompleted: user.onboardingTourCompleted,
     profileComplete,
   }
 }
