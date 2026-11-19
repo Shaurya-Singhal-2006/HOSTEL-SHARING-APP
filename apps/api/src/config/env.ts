@@ -7,6 +7,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   WEB_ORIGIN: z.string().url().default('http://localhost:5173'),
   API_ORIGIN: z.string().url().default('http://localhost:4000'),
+  API_PUBLIC_URL: z.string().url().default('http://localhost:4000'),
+  UPLOAD_DIR: z.string().min(1).default('./uploads'),
   GOOGLE_CLIENT_ID: z.string().min(1, 'GOOGLE_CLIENT_ID is required'),
   GOOGLE_CLIENT_SECRET: z.string().min(1, 'GOOGLE_CLIENT_SECRET is required'),
   HOSTEL_INVITE_CODE: z.string().min(6, 'HOSTEL_INVITE_CODE must have at least 6 characters'),

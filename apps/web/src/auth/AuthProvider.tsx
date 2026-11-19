@@ -84,5 +84,5 @@ export function routeForUser(user: CurrentUser | null): string {
   if (!user) return '/login'
   if (!user.joinedHostel) return '/join'
   if (!profileIsComplete(user)) return '/onboarding'
-  return '/profile'
+  return '/'
 }

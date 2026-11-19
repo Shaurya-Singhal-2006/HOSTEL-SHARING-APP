@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { LogOut, MapPin, ShieldCheck } from 'lucide-react'
 import { apiRequest } from '../api/client'
@@ -25,8 +25,9 @@ export default function ProfilePage() {
   if (!user) return null
   const avatar = safeAvatar(user.avatarUrl)
 
-  return <main className="profile-screen">
-    <header className="profile-topbar"><a className="auth-brand" href="/profile"><span className="brand-mark" aria-hidden="true"><span /><span /></span><span>Lend<span>Loop</span></span></a><NeuButton onClick={async () => {
+  return <div className="profile-screen profile-screen--in-app">
+    <div className="profile-content">
+      <div className="profile-heading"><div><h1>Your profile</h1><p>Make it easy for your hostel neighbours to borrow with confidence.</p></div><div className="profile-heading__actions"><Link to="/my-items" className="neu-button">My items</Link><NeuButton onClick={async () => {
       setLogoutError('')
       try {
         await logout()
@@ -34,10 +35,7 @@ export default function ProfilePage() {
       } catch {
         setLogoutError('Could not sign out. Please try again.')
       }
-    }} icon={<LogOut size={16} />}>Sign out</NeuButton></header>
-
-    <div className="profile-content">
-      <div className="profile-heading"><h1>Your profile</h1><p>Make it easy for your hostel neighbours to borrow with confidence.</p></div>
+    }} icon={<LogOut size={16} />}>Sign out</NeuButton></div></div>
       <div className="profile-layout">
         <NeuCard className="profile-summary">
           <div className="profile-summary__person">
@@ -65,5 +63,5 @@ export default function ProfilePage() {
         </NeuCard>
       </div>
     </div>
-  </main>
+  </div>
 }

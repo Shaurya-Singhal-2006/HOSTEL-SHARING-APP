@@ -22,7 +22,7 @@ export default function OnboardingPage() {
           body: { ...values, floor: Number(values.floor), phone: values.phone || null },
         })
         queryClient.setQueryData(ME_QUERY_KEY, result.user)
-        navigate('/profile', { replace: true })
+        navigate('/', { replace: true })
       }}
     />
   </AuthFrame>

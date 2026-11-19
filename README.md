@@ -5,13 +5,13 @@ Hostel item sharing for one campus community. This npm-workspaces monorepo conta
 ## Stack
 
 - Frontend: React, Vite, Tailwind CSS, React Router, TanStack Query, Framer Motion
-- API: Node.js, Express, Zod
+- API: Node.js, Express, Zod, Multer, Sharp
 - Database: PostgreSQL with Prisma
 - Sign-in: Google OAuth 2.0, JWT in an HTTP-only cookie
 
 ## Local setup
 
-Requirements: Node.js 20+ and PostgreSQL 14+.
+Requirements: Node.js 20.9+ and PostgreSQL 14+.
 
 1. If `apps/api/.env` does not already exist, copy the root `.env.example` there. If it already exists, keep its database settings and add the variables listed below. Set Google OAuth credentials, an invite code, and a random `JWT_SECRET` of at least 32 characters.
 2. Copy `apps/web/.env.example` to `apps/web/.env` if the API is not at `http://localhost:4000`.
@@ -19,6 +19,8 @@ Requirements: Node.js 20+ and PostgreSQL 14+.
 
    ```sh
    npm install
+   npm install -w @lendloop/api multer@^2.5.0 sharp
+   npm install -D -w @lendloop/api @types/multer
    ```
 
 4. Apply the database migrations and seed the single hostel community:
@@ -29,6 +31,8 @@ Requirements: Node.js 20+ and PostgreSQL 14+.
    npm run db:seed
    ```
 
+   Phase 3 adds listing indexes. Run `npm run db:generate` and `npm run db:migrate` after pulling this phase. To add sample listings for local development, use `npm run db:seed:demo`; it creates three `.test` demo users and 15 listings with no photos. The demo seed refuses to run when `NODE_ENV=production`.
+
 5. Start the frontend and API:
 
    ```sh
@@ -37,7 +41,7 @@ Requirements: Node.js 20+ and PostgreSQL 14+.
 
 6. Open <http://localhost:5173/login>. The UI component specimen remains at <http://localhost:5173/design>. The API health endpoint is <http://localhost:4000/api/health>.
 
-The seed creates only **LendLoop Hostel**. It does not create student accounts or sample loan history. Google sign-in accepts any verified Google account; the invite code controls access to this hostel.
+The main seed creates only **LendLoop Hostel**. It does not create student accounts or sample loan history. Google sign-in accepts any verified Google account; the invite code controls access to this hostel.
 
 ## Google Cloud Console setup
 
@@ -63,6 +67,8 @@ API variables in `apps/api/.env`:
 | `PORT` | API listen port, default 4000 |
 | `WEB_ORIGIN` | Exact frontend origin allowed by CORS |
 | `API_ORIGIN` | Public API origin used to construct Google’s callback URI |
+| `API_PUBLIC_URL` | Public API origin used for local image URLs; defaults to `http://localhost:4000` |
+| `UPLOAD_DIR` | API local-disk image directory; defaults to `./uploads` |
 | `GOOGLE_CLIENT_ID` | Google OAuth web client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth web client secret |
 | `HOSTEL_INVITE_CODE` | Private code required to join the seeded hostel |
@@ -70,6 +76,8 @@ API variables in `apps/api/.env`:
 | `NODE_ENV` | Set to `production` to enable secure cookies |
 
 `apps/web/.env` may set `VITE_API_URL`; it defaults to `http://localhost:4000`.
+
+`UPLOAD_DIR` defaults to `./uploads`, resolved from the API process working directory (normally `apps/api/uploads`). `API_PUBLIC_URL` defaults to `http://localhost:4000` and is used when constructing public image URLs.
 
 ## Phase 2 manual test checklist
 
@@ -81,6 +89,24 @@ API variables in `apps/api/.env`:
 6. **Profile edit:** save a different name, block, floor, room, and optional phone. Refresh and verify the changes persist. `GET /api/me` returns profile data only to the signed-in account; it returns HTTP 401 without the session cookie.
 7. **Logout:** sign out, confirm return to `/login`, and verify opening `/profile` again redirects to sign-in.
 
+## Phase 3 manual test checklist
+
+1. Sign in, join the hostel, and complete your profile. Open `/` and confirm the Home screen loads. Item and category routes require all three steps.
+2. Create a listing with one photo, then repeat with two and three photos. Confirm the detail page carousel and Home card show the processed images.
+3. Try four photos, a photo larger than 5 MB, and a text file renamed to `.jpg`. Confirm a clear error appears and no listing is created. The server checks file signatures and accepts only JPEG, PNG, and WebP content.
+4. Edit your listing text and category, remove a current photo, and add a new photo. Confirm saved changes appear on the item detail page and removed image/thumbnail files are gone from `apps/api/uploads/items/<itemId>/`.
+5. In **My items**, change a listing between Available, Lent, and Hidden. Confirm hidden listings disappear from other members’ browse/detail views but remain visible to their owner.
+6. Create enough listings to exceed 20 in one hour for an account and confirm the API responds with HTTP 429.
+7. Search for full and partial words, select a category, toggle Available now, and filter by block and floor. Load additional pages and confirm newest items appear first without duplicates.
+8. Sign in as a second hostel member and try to edit or delete the first member’s item using its detail URL. The API must return HTTP 404 and leave the listing unchanged.
+9. Inspect `/api/items`, `/api/items/:id`, and `/api/items/mine` responses in devtools. Confirm item owner objects contain only name, block, floor, avatar URL, and trust score; no owner email or phone is returned.
+10. Open `/uploads/` and confirm it returns a not-found response rather than a file listing. Image URLs below it should load. The folder is ignored by Git except for its `.gitkeep`.
+11. Delete a listing without an accepted borrow request. Confirm its item record and photo/thumbnail files are removed. For the accepted-request guard, create an accepted request in the database during Phase 4 testing and confirm deletion returns HTTP 409.
+
+## Local image storage
+
+Uploads remain on the API server’s disk under `apps/api/uploads/items/<itemId>/` by default. This phase does not use cloud storage. A deployed API needs an attached persistent disk mounted at `UPLOAD_DIR`; ephemeral container filesystems can be cleared on restart or redeploy. Back up that disk together with the database because item photo paths refer to those files.
+
 ## Deployment outline
 
 - Deploy `apps/web` as a Vercel project rooted at `apps/web`; set `VITE_API_URL` to the API origin unless `/api` is proxied through the same site.
@@ -88,4 +114,4 @@ API variables in `apps/api/.env`:
 - Set the API environment variables in Render. Use a release command `npm run db:deploy -w @lendloop/api` before serving traffic.
 - Configure production JavaScript origin and OAuth callback URI in Google Cloud Console. Both must use the deployed HTTPS domains.
 
-Authentication, hostel joining, and profile setup are Phase 2. Item listings and borrowing workflows remain for Phase 3.
+Authentication and profile setup are Phase 2. Phase 3 adds item listings, local photo uploads, browse/search, detail pages, and My items. Borrow requests, wanted posts, and ratings remain for Phase 4.

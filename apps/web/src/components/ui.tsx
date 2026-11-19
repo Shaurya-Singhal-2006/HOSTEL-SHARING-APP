@@ -69,9 +69,16 @@ export function NeuBottomNav({ active = 'Home' }: { active?: string }) {
   </nav>
 }
 
-export function NeuAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
+export function NeuAvatar({ name, size = 'md', src }: { name: string; size?: 'sm' | 'md' | 'lg'; src?: string | null }) {
   const initials = name.trim().split(/\s+/).slice(0, 2).map(part => part[0]?.toUpperCase()).join('')
-  return <span className={`neu-avatar neu-avatar--${size}`} aria-label={name} role="img">{initials}</span>
+  let safeSrc: string | null = null
+  if (src) {
+    try {
+      const parsed = new URL(src)
+      if (parsed.protocol === 'https:' && parsed.hostname === 'lh3.googleusercontent.com') safeSrc = parsed.toString()
+    } catch { safeSrc = null }
+  }
+  return <span className={`neu-avatar neu-avatar--${size}`} aria-label={name} role="img">{safeSrc ? <img src={safeSrc} alt="" referrerPolicy="no-referrer" /> : initials}</span>
 }
 
 export function NeuBadge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'success' | 'warning' | 'danger' }) {

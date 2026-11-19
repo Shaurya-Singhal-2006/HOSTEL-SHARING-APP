@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { profileIsComplete, routeForUser, useAuth } from '../auth/AuthProvider'
 import { NeuButton, NeuCard, NeuSkeleton } from './ui'
 
-export type ProtectedPage = 'login' | 'join' | 'onboarding' | 'profile' | 'callback' | 'home'
+export type ProtectedPage = 'login' | 'join' | 'onboarding' | 'profile' | 'callback' | 'home' | 'app'
 
 export default function ProtectedRoute({ page, children }: { page: ProtectedPage; children?: ReactNode }) {
   const { user, isLoading, error, refresh } = useAuth()
@@ -15,16 +15,16 @@ export default function ProtectedRoute({ page, children }: { page: ProtectedPage
   }
   if (page === 'join') {
     if (!user) return <Navigate to="/login" replace />
-    if (user.joinedHostel) return <Navigate to={profileIsComplete(user) ? '/profile' : '/onboarding'} replace />
+    if (user.joinedHostel) return <Navigate to={profileIsComplete(user) ? '/' : '/onboarding'} replace />
     return <>{children}</>
   }
   if (page === 'onboarding') {
     if (!user) return <Navigate to="/login" replace />
     if (!user.joinedHostel) return <Navigate to="/join" replace />
-    if (profileIsComplete(user)) return <Navigate to="/profile" replace />
+    if (profileIsComplete(user)) return <Navigate to="/" replace />
     return <>{children}</>
   }
-  if (page === 'profile') {
+  if (page === 'profile' || page === 'app') {
     if (!user) return <Navigate to="/login" replace />
     if (!user.joinedHostel) return <Navigate to="/join" replace />
     if (!profileIsComplete(user)) return <Navigate to="/onboarding" replace />

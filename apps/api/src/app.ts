@@ -8,6 +8,9 @@ import { errorHandler, notFoundHandler } from './middleware/error-handler.js'
 import { authRouter } from './routes/auth.routes.js'
 import { joinRouter } from './routes/join.routes.js'
 import { meRouter } from './routes/me.routes.js'
+import { itemsRouter } from './routes/items.routes.js'
+import { categoriesRouter } from './routes/categories.routes.js'
+import { uploadsStatic } from './services/storage.service.js'
 
 export const app = express()
 
@@ -23,6 +26,7 @@ app.use(cors({
 }))
 app.use(express.json({ limit: '1mb' }))
 app.use(cookieParser())
+app.use('/uploads', uploadsStatic)
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'lendloop-api' })
@@ -30,6 +34,8 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRouter)
 app.use('/api/me', meRouter)
 app.use('/api/join', joinRouter)
+app.use('/api/items', itemsRouter)
+app.use('/api/categories', categoriesRouter)
 
 app.use(notFoundHandler)
 app.use(errorHandler)

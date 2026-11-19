@@ -61,6 +61,7 @@ model User {
   ratingsTo   Rating[]         @relation("RatingTo")
 
   @@index([communityId])
+  @@index([communityId, block, floor])
   @@map("users")
 }
 
@@ -83,6 +84,8 @@ model Item {
   @@index([status])
   @@index([communityId])
   @@index([ownerId])
+  @@index([communityId, createdAt(sort: Desc)])
+  @@index([communityId, category, createdAt(sort: Desc)])
   // PostgreSQL GIN full-text index is created in the SQL migration.
   @@map("items")
 }

@@ -10,6 +10,12 @@ import JoinPage from './pages/JoinPage'
 import LoginPage from './pages/LoginPage'
 import OnboardingPage from './pages/OnboardingPage'
 import ProfilePage from './pages/ProfilePage'
+import HomePage from './pages/HomePage'
+import ItemDetailPage from './pages/ItemDetailPage'
+import ItemFormPage from './pages/ItemFormPage'
+import MyItemsPage from './pages/MyItemsPage'
+import ComingSoonPage from './pages/ComingSoonPage'
+import AppShell from './components/AppShell'
 import './styles.css'
 
 const queryClient = new QueryClient({
@@ -26,9 +32,15 @@ function App() {
             <Route path="/login" element={<ProtectedRoute page="login"><LoginPage /></ProtectedRoute>} />
             <Route path="/join" element={<ProtectedRoute page="join"><JoinPage /></ProtectedRoute>} />
             <Route path="/onboarding" element={<ProtectedRoute page="onboarding"><OnboardingPage /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute page="profile"><ProfilePage /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute page="profile"><AppShell><ProfilePage /></AppShell></ProtectedRoute>} />
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
-            <Route path="/" element={<ProtectedRoute page="home" />} />
+            <Route path="/" element={<ProtectedRoute page="app"><AppShell><HomePage /></AppShell></ProtectedRoute>} />
+            <Route path="/wanted" element={<ProtectedRoute page="app"><AppShell><ComingSoonPage /></AppShell></ProtectedRoute>} />
+            <Route path="/requests" element={<ProtectedRoute page="app"><AppShell><ComingSoonPage /></AppShell></ProtectedRoute>} />
+            <Route path="/my-items" element={<ProtectedRoute page="app"><AppShell><MyItemsPage /></AppShell></ProtectedRoute>} />
+            <Route path="/items/new" element={<ProtectedRoute page="app"><AppShell><ItemFormPage /></AppShell></ProtectedRoute>} />
+            <Route path="/items/:id/edit" element={<ProtectedRoute page="app"><AppShell><ItemFormPage /></AppShell></ProtectedRoute>} />
+            <Route path="/items/:id" element={<ProtectedRoute page="app"><AppShell><ItemDetailPage /></AppShell></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AuthProvider>
