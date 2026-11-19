@@ -8,7 +8,8 @@
     "dev:api": "npm run dev -w @lendloop/api",
     "db:generate": "npm run db:generate -w @lendloop/api",
     "db:migrate": "npm run db:migrate -w @lendloop/api",
-    "db:seed": "npm run db:seed -w @lendloop/api"
+    "db:seed": "npm run db:seed -w @lendloop/api",
+    "db:deploy": "npm run db:deploy -w @lendloop/api"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

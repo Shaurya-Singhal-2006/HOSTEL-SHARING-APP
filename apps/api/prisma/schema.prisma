@@ -42,9 +42,12 @@ model User {
   communityId String           @map("community_id") @db.Uuid
   name        String
   email       String           @unique
-  block       String           @db.Char(1)
-  floor       Int
-  room        String
+  googleId    String?          @unique @map("google_id")
+  avatarUrl   String?          @map("avatar_url")
+  joinedHostel Boolean         @default(false) @map("joined_hostel")
+  block       String?          @db.Char(1)
+  floor       Int?
+  room        String?
   phone       String?
   trustScore  Int              @default(0) @map("trust_score")
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)

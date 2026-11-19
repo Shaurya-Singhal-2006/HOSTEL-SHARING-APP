@@ -1,26 +1,15 @@
-import 'dotenv/config'
-import cors from 'cors'
-import express from 'express'
-import { z } from 'zod'
+import { app } from './app.js'
+import { env } from './config/env.js'
+import { prisma } from './lib/prisma.js'
 
-const app = express()
-const port = Number(process.env.PORT ?? 4000)
-const allowedOrigin = process.env.WEB_ORIGIN ?? 'http://localhost:5173'
-
-app.disable('x-powered-by')
-app.use(cors({ origin: allowedOrigin, credentials: true }))
-app.use(express.json({ limit: '1mb' }))
-
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'lendloop-api' })
+const server = app.listen(env.PORT, () => {
+  console.log(`LendLoop API listening on ${env.API_ORIGIN}`)
 })
 
-app.post('/api/phase-one/validate', (req, res) => {
-  const payload = z.object({ value: z.string().trim().min(1).max(120) }).safeParse(req.body)
-  if (!payload.success) return res.status(400).json({ error: 'Invalid request', details: payload.error.flatten() })
-  return res.json({ valid: true })
-})
+async function shutdown() {
+  server.close()
+  await prisma.$disconnect()
+}
 
-app.listen(port, () => {
-  console.log(`LendLoop API listening on http://localhost:${port}`)
-})
+process.on('SIGINT', () => void shutdown())
+process.on('SIGTERM', () => void shutdown())

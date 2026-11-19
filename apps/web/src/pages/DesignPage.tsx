@@ -40,7 +40,7 @@ export default function DesignPage() {
                 <div className="button-demo"><NeuButton variant="primary" icon={<ArrowUpRight size={17} />}>Primary action</NeuButton><NeuButton>Secondary</NeuButton><NeuButton disabled>Unavailable</NeuButton></div>
               </NeuCard>
               <NeuCard className="component-card"><div className="component-title"><div><span className="component-index">02</span><h3>Inputs</h3></div><span className="component-note">clear labels</span></div>
-                <NeuInput label="Search your hostel" placeholder="Try “drill” or “umbrella”" /><div className="input-row"><NeuInput label="Email address" type="email" placeholder="you@stu.upes.ac.in" hint="Use your college email" /><NeuInput label="Room number" defaultValue="C-312" error="Check the room format" /></div>
+                <NeuInput label="Search your hostel" placeholder="Try “drill” or “umbrella”" /><div className="input-row"><NeuInput label="Email address" type="email" placeholder="you@example.com" hint="Your Google account email" /><NeuInput label="Room number" defaultValue="C-312" error="Check the room format" /></div>
               </NeuCard>
             </div>
           </section>
