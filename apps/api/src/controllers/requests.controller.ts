@@ -38,13 +38,17 @@ function serializeRequest(request: any, viewerId: string) {
     createdAt: request.createdAt,
     other: { id: other.id, name: other.name, floor: other.floor, room: other.room, ...(request.status === 'accepted' ? { phone: other.phone } : {}) },
     isBorrower: request.borrowerId === viewerId,
+    myRated: request.ratings?.some((rating: any) => rating.fromUserId === viewerId) ?? false,
+    otherRated: request.ratings?.some((rating: any) => rating.fromUserId === other.id) ?? false,
+    myRating: request.ratings?.find((rating: any) => rating.fromUserId === viewerId) ?? null,
   }
 }
 
 const includeRequest = {
   item: { select: { id: true, title: true, category: true, photos: true } },
-  borrower: { select: { id: true, name: true, floor: true, room: true, phone: true } },
-  owner: { select: { id: true, name: true, floor: true, room: true, phone: true } },
+  borrower: { select: { id: true, name: true, floor: true, room: true, phone: true, trustScore: true } },
+  owner: { select: { id: true, name: true, floor: true, room: true, phone: true, trustScore: true } },
+  ratings: { select: { fromUserId: true, thumbsUp: true, comment: true } },
 } as const
 
 export const createRequest: RequestHandler = asyncHandler(async (req, res) => {
@@ -182,10 +186,14 @@ export const returnRequest: RequestHandler = asyncHandler(async (req, res) => {
 export const listNotifications: RequestHandler = asyncHandler(async (req, res) => {
   const userId = req.currentUser!.id
   const [notifications, unreadCount] = await Promise.all([
-    prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 30, include: { request: { include: { item: { select: { id: true, title: true, category: true, photos: true } } } } } }),
+    prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 30, include: { request: { include: { item: { select: { id: true, title: true, category: true, photos: true } } } }, wantedPost: { select: { id: true, title: true, category: true } } } }),
     prisma.notification.count({ where: { userId, read: false } }),
   ])
-  res.json({ notifications: notifications.map((notification) => ({ id: notification.id, type: notification.type, requestId: notification.requestId, message: notification.message, read: notification.read, createdAt: notification.createdAt, item: { ...notification.request.item, photos: notification.request.item.photos.map((path) => ({ path, url: getPublicUrl(path), thumbnailUrl: getPublicUrl(path, true) })) } })), unreadCount })
+  const wantedUnreadCount = await prisma.notification.count({ where: { userId, read: false, type: { in: ['wanted_response', 'wanted_helper_selected'] } } })
+  res.json({ notifications: notifications.map((notification) => {
+    const item = notification.request?.item
+    return { id: notification.id, type: notification.type, requestId: notification.requestId, wantedPostId: notification.wantedPostId, message: notification.message, read: notification.read, createdAt: notification.createdAt, item: item ? { ...item, photos: item.photos.map((path) => ({ path, url: getPublicUrl(path), thumbnailUrl: getPublicUrl(path, true) })) } : notification.wantedPost ? { ...notification.wantedPost, photos: [] } : null }
+  }), unreadCount, wantedUnreadCount })
 })
 
 export const readAllNotifications: RequestHandler = asyncHandler(async (req, res) => {

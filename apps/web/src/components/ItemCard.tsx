@@ -4,6 +4,7 @@ import type { ItemRecord } from '../items/types'
 import { formatLocation } from '../items/location'
 import ItemVisual from './ItemVisual'
 import { NeuAvatar, NeuBadge, NeuCard } from './ui'
+import ReputationButton from './ReputationButton'
 
 export default function ItemCard({ item }: { item: ItemRecord }) {
   const location = formatLocation(item.owner.floor, item.owner.room)
@@ -17,12 +18,12 @@ export default function ItemCard({ item }: { item: ItemRecord }) {
         <div className="listing-card__meta"><span>{item.category}</span><span>{item.condition}</span></div>
         <h2>{item.title}</h2>
         <p>{item.description}</p>
-        <div className="listing-card__owner">
-          <NeuAvatar name={item.owner.name} size="sm" src={item.owner.avatarUrl} />
-          <span><strong>{item.owner.name}</strong><small><MapPin size={12} />{location || 'Hostel member'}</small></span>
-          <ArrowUpRight size={16} className="listing-card__arrow" aria-hidden="true" />
-        </div>
       </div>
     </Link>
+    <div className="listing-card__owner">
+      <NeuAvatar name={item.owner.name} size="sm" src={item.owner.avatarUrl} />
+      <span><strong><ReputationButton userId={item.owner.id} name={item.owner.name}/></strong><small><MapPin size={12} />{location || 'Hostel member'}</small></span>
+      <Link to={`/items/${item.id}`} aria-label={`View ${item.title}`}><ArrowUpRight size={16} className="listing-card__arrow" aria-hidden="true" /></Link>
+    </div>
   </NeuCard>
 }

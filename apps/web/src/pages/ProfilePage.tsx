@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
-import { LogOut, MapPin, ShieldCheck } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { LogOut, MapPin, ShieldCheck, ThumbsDown, ThumbsUp } from 'lucide-react'
 import { apiRequest } from '../api/client'
 import { ME_QUERY_KEY, type CurrentUser, useAuth } from '../auth/AuthProvider'
 import ProfileEditor from '../components/ProfileEditor'
 import { NeuAvatar, NeuButton, NeuCard } from '../components/ui'
 import { formatLocation } from '../items/location'
+import { NeuBadge } from '../components/ui'
 
 function safeAvatar(url: string | null): string | null {
   if (!url) return null
@@ -23,6 +24,7 @@ export default function ProfilePage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [logoutError, setLogoutError] = useState('')
+  const reputation=useQuery({queryKey:['reputation',user?.id],enabled:Boolean(user),queryFn:async()=> (await apiRequest<{reputation:{trustScore:number;thumbsUp:number;thumbsDown:number;totalCompletedLends:number;totalBorrows:number;badges:string[]}}>(`/api/ratings/users/${user!.id}/reputation`)).reputation})
   if (!user) return null
   const avatar = safeAvatar(user.avatarUrl)
 
@@ -45,6 +47,7 @@ export default function ProfilePage() {
           </div>
           <div className="profile-detail"><MapPin size={17} /><span>{formatLocation(user.floor, user.room)}</span></div>
           <div className="profile-detail"><ShieldCheck size={17} /><span>Member of LendLoop Hostel</span></div>
+          {reputation.data&&<div className="profile-reputation"><strong>Trust score {reputation.data.trustScore}</strong><span><ThumbsUp size={14}/>{reputation.data.thumbsUp} · <ThumbsDown size={14}/>{reputation.data.thumbsDown}</span><span>{reputation.data.totalCompletedLends} completed lends · {reputation.data.totalBorrows} borrows</span><div>{reputation.data.badges.map(b=><NeuBadge key={b} tone={b==='Reliable'||b==='Top lender'?'success':'neutral'}>{b}</NeuBadge>)}</div></div>}
           <div className="profile-summary__note">Your phone number stays private and is only shared when a borrow request is accepted.</div>
           {logoutError && <p className="auth-error" role="alert">{logoutError}</p>}
         </NeuCard>

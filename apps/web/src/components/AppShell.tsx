@@ -18,9 +18,10 @@ const links = [
 
 function Navigation({ mobile = false }: { mobile?: boolean }) {
   const pendingQuery = useQuery({ queryKey: ['requests', 'pending-count'], queryFn: async () => (await apiRequest<{ requests: unknown[] }>('/api/requests/mine?role=owner&status=pending')).requests.length, refetchInterval: 30_000 })
+  const wantedQuery = useQuery({ queryKey: ['notifications'], queryFn: () => apiRequest<{ wantedUnreadCount: number }>('/api/notifications'), refetchInterval: 30_000 })
   return <nav className={`app-nav ${mobile ? 'app-nav--mobile' : ''}`} aria-label="Main navigation">
     {links.map(({ label, to, icon: Icon, end }) => <NavLink key={label} to={to} end={end} className={({ isActive }) => `app-nav__link ${isActive ? 'is-active' : ''}`}>
-      <Icon size={19} strokeWidth={1.8} /><span>{label}</span>{label === 'Requests' && (pendingQuery.data ?? 0) > 0 && <span className="nav-count">{pendingQuery.data}</span>}
+      <Icon size={19} strokeWidth={1.8} /><span>{label}</span>{label === 'Requests' && (pendingQuery.data ?? 0) > 0 && <span className="nav-count">{pendingQuery.data}</span>}{label === 'Wanted' && (wantedQuery.data?.wantedUnreadCount ?? 0) > 0 && <span className="nav-count">{wantedQuery.data?.wantedUnreadCount}</span>}
     </NavLink>)}
   </nav>
 }

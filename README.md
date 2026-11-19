@@ -114,7 +114,7 @@ Uploads remain on the API server’s disk under `apps/api/uploads/items/<itemId>
 - Set the API environment variables in Render. Use a release command `npm run db:deploy -w @lendloop/api` before serving traffic.
 - Configure production JavaScript origin and OAuth callback URI in Google Cloud Console. Both must use the deployed HTTPS domains.
 
-Authentication and profile setup are Phase 2. Phase 3 adds item listings, local photo uploads, browse/search, detail pages, and My items. Phase 4 adds borrowing requests, notifications, and contact sharing only after acceptance. Wanted posts and ratings remain for Phase 5.
+Authentication and profile setup are Phase 2. Phase 3 adds item listings, local photo uploads, browse/search, detail pages, and My items. Phase 4 adds borrowing requests, notifications, and contact sharing only after acceptance. Phase 5 adds the wanted board and post-return ratings.
 
 ## Phase 4 manual test checklist
 
@@ -129,3 +129,31 @@ Authentication and profile setup are Phase 2. Phase 3 adds item listings, local 
 9. Set an accepted request’s `to_date` to yesterday in the database and refresh Requests; confirm the API returns `isOverdue: true` and the card shows “Overdue”.
 
 The profile floor is stored as an integer: `0` means Basement and `1` through `5` mean Floor 1 through Floor 5. Room values are stored uppercase and must match `^[A-Z][0-9]{1,3}$`. Phase 4 adds no environment variables; the existing `.env.example` remains current.
+
+## Phase 5: Wanted board and reputation
+
+No new environment variables are required. The API uses the existing hostel community, session, and notification configuration. Apply Phase 5 after pulling the migration:
+
+```sh
+npm run db:generate
+npm run db:migrate
+```
+
+The migration adds wanted categories and helper selection, makes the optional needed-by date nullable, closes wanted posts as a supported status, enforces one response per member and post, adds wanted notification targets, and timestamps ratings. In production, run `npm run db:deploy` instead of `npm run db:migrate`.
+
+Wanted feed and detail endpoints require sign-in, joining the hostel, and a complete profile. Wanted responder phone numbers are only included in the author’s detail response while a post is open, or for the selected helper after fulfillment. Feeds, non-author detail, and public reputation summaries omit phone and email. Wanted posts are limited to five open posts per member and ten created posts per hour. Past needed-by dates are returned with `isExpired: true`, and expired posts cannot accept new responses.
+
+Ratings are one per exchange participant after the request is returned. The unique constraint blocks a second submission; no rating edit endpoint is provided. Trust score is recalculated as thumbs-up minus thumbs-down, with a floor of zero, inside the rating transaction. Reputation summaries expose only public profile fields, counts, completed lend/borrow totals, badges, and recent comments without contact details. No environment changes are needed for this phase.
+
+### Phase 5 manual test checklist
+
+1. Sign in as one hostel member and complete the profile. Open **Wanted** and post a title, category, optional note, and optional future/today needed-by date. Confirm the post appears in **My posts** and the open board.
+2. Start typing an item title that matches an available listing. Confirm the “Someone already listed this” suggestion appears and opens the item detail/request flow.
+3. Sign in as a second member. Open the first member’s post and respond once. Confirm the author receives a wanted notification and sees the response count increase. Attempt a second response; expect HTTP 409.
+4. Attempt to respond to your own post; expect HTTP 400. Inspect the non-author `GET /api/wanted/:id` response in F12 → Network: it must include the response count and only your own response, with no other responder list, phone, or email.
+5. As the author, open the detail. Confirm responder name, floor, room, message, and phone are visible while the post is open. Select a helper and mark fulfilled. Confirm only the selected helper’s phone remains available to the author; other responders’ phones must be absent. Close a different open post and delete a test post.
+6. Set a post’s `needed_by` to yesterday in the database. Refresh the board and detail; confirm it has an `Expired` label and `isExpired: true`, and the server blocks another response.
+7. Create five open posts for one member. Attempt a sixth; expect HTTP 409. Create ten posts within an hour and confirm the next post receives HTTP 429. The rate limiter is in-memory per API process, as with the existing item/request limiters.
+8. Create a borrow request and attempt to rate it before return; expect HTTP 409. Complete the return, then submit a thumbs-up or thumbs-down rating from each participant. A third member must receive HTTP 403. Submit a second rating from the same participant; expect HTTP 409.
+9. Confirm trust score changes after a rating, and test the derived badges with accounts that have zero lends, at least five positive ratings with fewer than ten percent negative ratings, and ten completed lends. The requester who rated first should see a polite note that the other participant can still rate.
+10. Open the profile, item owner card, request card, and wanted responder name. Confirm the trust score/badges and public reputation modal appear. Inspect `GET /api/ratings/users/:id/reputation` in Network: it must not contain `phone` or `email` for the member or commenters.

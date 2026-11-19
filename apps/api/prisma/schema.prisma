@@ -24,6 +24,7 @@ enum RequestStatus {
 enum WantedStatus {
   open
   fulfilled
+  closed
 }
 
 enum NotificationType {
@@ -32,6 +33,8 @@ enum NotificationType {
   request_declined
   request_cancelled
   request_returned
+  wanted_response
+  wanted_helper_selected
 }
 
 model Community {
@@ -64,6 +67,7 @@ model User {
   owned       BorrowRequest[]  @relation("OwnerRequests")
   notifications Notification[]
   wantedPosts WantedPost[]
+  helpedWantedPosts WantedPost[] @relation("WantedHelper")
   responses   WantedResponse[]
   ratingsFrom Rating[]         @relation("RatingFrom")
   ratingsTo   Rating[]         @relation("RatingTo")
@@ -127,15 +131,18 @@ model Notification {
   id        String           @id @default(uuid()) @db.Uuid
   userId    String           @map("user_id") @db.Uuid
   type      NotificationType
-  requestId String           @map("request_id") @db.Uuid
+  requestId String?          @map("request_id") @db.Uuid
+  wantedPostId String?       @map("wanted_post_id") @db.Uuid
   message   String
   read      Boolean          @default(false)
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  request   BorrowRequest    @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  request   BorrowRequest?   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  wantedPost WantedPost?     @relation(fields: [wantedPostId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([requestId])
+  @@index([wantedPostId])
   @@map("notifications")
 }
 
@@ -144,15 +151,20 @@ model WantedPost {
   communityId String           @map("community_id") @db.Uuid
   authorId    String           @map("author_id") @db.Uuid
   title       String
+  category    String
   note        String
-  neededBy    DateTime         @map("needed_by") @db.Date
+  neededBy    DateTime?        @map("needed_by") @db.Date
   status      WantedStatus     @default(open)
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   community   Community        @relation(fields: [communityId], references: [id], onDelete: Restrict)
   author      User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
   responses   WantedResponse[]
+  helperId    String?          @map("helper_id") @db.Uuid
+  helper      User?            @relation("WantedHelper", fields: [helperId], references: [id], onDelete: SetNull)
+  notifications Notification[]
 
   @@index([communityId, status])
+  @@index([status, createdAt(sort: Desc)])
   @@map("wanted_posts")
 }
 
@@ -166,6 +178,7 @@ model WantedResponse {
   responder   User       @relation(fields: [responderId], references: [id], onDelete: Cascade)
 
   @@index([wantedPostId])
+  @@unique([wantedPostId, responderId])
   @@map("wanted_responses")
 }
 
@@ -176,11 +189,13 @@ model Rating {
   toUserId   String        @map("to_user_id") @db.Uuid
   thumbsUp   Boolean       @map("thumbs_up")
   comment    String?
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   request    BorrowRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   fromUser   User          @relation("RatingFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
   toUser     User          @relation("RatingTo", fields: [toUserId], references: [id], onDelete: Cascade)
 
   @@unique([requestId, fromUserId])
   @@index([toUserId])
+  @@index([toUserId, createdAt(sort: Desc)])
   @@map("ratings")
 }

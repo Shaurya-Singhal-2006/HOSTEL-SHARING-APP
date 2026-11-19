@@ -1,4 +1,4 @@
-import { rateLimit } from 'express-rate-limit'
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit'
 
 const sharedSettings = {
   windowMs: 15 * 60 * 1000,
@@ -13,5 +13,5 @@ const sharedSettings = {
 export const inviteIpLimiter = rateLimit(sharedSettings)
 export const inviteUserLimiter = rateLimit({
   ...sharedSettings,
-  keyGenerator: (req) => req.currentUser?.id ?? 'unauthed',
+  keyGenerator: (req) => req.currentUser?.id ?? ipKeyGenerator(req.ip!),
 })

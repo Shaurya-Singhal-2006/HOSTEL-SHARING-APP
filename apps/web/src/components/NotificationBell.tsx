@@ -5,12 +5,12 @@ import { Link } from 'react-router-dom'
 import { apiRequest } from '../api/client'
 import ItemVisual from './ItemVisual'
 
-type Notice = { id: string; requestId: string; type: string; message: string; read: boolean; createdAt: string; item: { id: string; title: string; category: string; photos: Array<{ path: string; url: string; thumbnailUrl: string }> } }
+type Notice = { id: string; requestId: string | null; wantedPostId: string | null; type: string; message: string; read: boolean; createdAt: string; item: { id: string; title: string; category: string; photos: Array<{ path: string; url: string; thumbnailUrl: string }> } | null }
 
 export default function NotificationBell({ compact = false }: { compact?: boolean }) {
   const [open, setOpen] = useState(false)
   const client = useQueryClient()
-  const query = useQuery({ queryKey: ['notifications'], queryFn: () => apiRequest<{ notifications: Notice[]; unreadCount: number }>('/api/notifications'), refetchInterval: 30_000 })
+  const query = useQuery({ queryKey: ['notifications'], queryFn: () => apiRequest<{ notifications: Notice[]; unreadCount: number; wantedUnreadCount: number }>('/api/notifications'), refetchInterval: 30_000 })
   const readAll = useMutation({ mutationFn: () => apiRequest('/api/notifications/read-all', { method: 'PATCH' }), onSuccess: () => client.invalidateQueries({ queryKey: ['notifications'] }) })
   const unread = query.data?.unreadCount ?? 0
   return <div className={`notification-bell ${compact ? 'notification-bell--compact' : ''}`}>
@@ -19,7 +19,7 @@ export default function NotificationBell({ compact = false }: { compact?: boolea
       {query.isPending && <p className="notification-empty">Loading…</p>}
       {query.isError && <p className="notification-empty">Notifications could not load.</p>}
       {query.data?.notifications.length === 0 && <p className="notification-empty">You’re all caught up.</p>}
-      {query.data?.notifications.map((notice) => <Link to={`/requests?focus=${notice.requestId}`} onClick={() => setOpen(false)} className={`notification-row ${notice.read ? '' : 'is-unread'}`} key={notice.id}><ItemVisual item={notice.item} size="compact" /><span><strong>{notice.message}</strong><small>{new Date(notice.createdAt).toLocaleString()}</small></span></Link>)}
+      {query.data?.notifications.map((notice) => <Link to={notice.wantedPostId ? `/wanted/${notice.wantedPostId}` : `/requests?focus=${notice.requestId}`} onClick={() => setOpen(false)} className={`notification-row ${notice.read ? '' : 'is-unread'}`} key={notice.id}>{notice.item&&<ItemVisual item={notice.item} size="compact" />}<span><strong>{notice.message}</strong><small>{new Date(notice.createdAt).toLocaleString()}</small></span></Link>)}
     </div>}
   </div>
 }

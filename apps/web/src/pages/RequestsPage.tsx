@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, X } from 'lucide-react'
+import { Check, ThumbsDown, ThumbsUp, X } from 'lucide-react'
 import { apiRequest } from '../api/client'
 import ItemVisual from '../components/ItemVisual'
 import { NeuBadge, NeuButton, NeuCard, NeuChip, NeuEmptyState, NeuModal, NeuSkeleton } from '../components/ui'
 import { formatLocation } from '../items/location'
+import ReputationButton from '../components/ReputationButton'
 
 type RequestData = {
   id: string; item: { id: string; title: string; category: string; photos: Array<{ path: string; url: string; thumbnailUrl: string }> }
   fromDate: string; toDate: string; note: string; declineReason: string | null
   status: 'pending' | 'accepted' | 'declined' | 'cancelled' | 'returned'; isOverdue: boolean
-  other: { id: string; name: string; floor: number | null; room: string | null; phone?: string | null }; isBorrower: boolean
+  other: { id: string; name: string; floor: number | null; room: string | null; phone?: string | null; trustScore?: number }; isBorrower: boolean; myRated:boolean; otherRated:boolean
 }
 type Role = 'borrower' | 'owner'
 const filters = ['All', 'Pending', 'Accepted', 'Returned', 'Declined/Cancelled'] as const
@@ -35,10 +36,12 @@ function RequestCard({ request }: { request: RequestData }) {
   const client = useQueryClient()
   const [declineOpen, setDeclineOpen] = useState(false)
   const [reason, setReason] = useState('')
+  const [rating,setRating]=useState<boolean|null>(null);const [comment,setComment]=useState('')
   const action = useMutation({
     mutationFn: ({ name, body }: { name: string; body?: unknown }) => apiRequest(`/api/requests/${request.id}/${name}`, { method: 'PATCH', ...(body === undefined ? {} : { body }) }),
     onSuccess: async () => { await Promise.all([client.invalidateQueries({ queryKey: ['requests'] }), client.invalidateQueries({ queryKey: ['items'] }), client.invalidateQueries({ queryKey: ['notifications'] })]); setDeclineOpen(false) },
   })
+  const rate=useMutation({mutationFn:()=>apiRequest('/api/ratings',{method:'POST',body:{requestId:request.id,thumbsUp:rating,comment:comment||undefined}}),onSuccess:async()=>{await client.invalidateQueries({queryKey:['requests']});await client.invalidateQueries({queryKey:['reputation',request.other.id]})}})
   const location = formatLocation(request.other.floor, request.other.room)
   const statusTone = request.status === 'accepted' || request.status === 'returned' ? 'success' : request.status === 'declined' || request.status === 'cancelled' ? 'neutral' : 'warning'
   const phoneDigits = request.other.phone?.replace(/[^+0-9]/g, '') ?? ''
@@ -48,10 +51,11 @@ function RequestCard({ request }: { request: RequestData }) {
       <div className="request-card__top"><NeuBadge tone={statusTone}>{request.status}</NeuBadge>{request.isOverdue && <NeuBadge tone="danger">Overdue</NeuBadge>}</div>
       <h2>{request.item.title}</h2>
       <p className="request-card__dates">{request.fromDate} – {request.toDate}</p>
-      <p className="request-card__other">{request.isBorrower ? 'Owner' : 'Requested by'}: <strong>{request.other.name}</strong><span>{location}</span></p>
+      <p className="request-card__other">{request.isBorrower ? 'Owner' : 'Requested by'}: <strong><ReputationButton userId={request.other.id} name={request.other.name}/></strong><span>{location}</span></p>
       {request.note && <p className="request-card__note">“{request.note}”</p>}
       {request.declineReason && <p className="request-card__note">Reason: {request.declineReason}</p>}
       {request.status === 'accepted' && <div className="request-contact"><strong>Contact {request.other.name}</strong><span>{location}</span>{request.other.phone ? <><a href={`tel:${phoneDigits}`}>Call</a><a href={`https://wa.me/${phoneDigits.replace(/\D/g, '')}`} target="_blank" rel="noreferrer">WhatsApp</a></> : <p>No phone added, meet at their room.</p>}</div>}
+      {request.status==='returned'&&<div className="rating-panel"><strong>{request.myRated?'Thanks for sharing your feedback':'Rate this exchange'}</strong>{request.myRated?<p>{!request.otherRated?'Your feedback is in. The other person can rate this exchange too.':'Both sides have shared their feedback.'}</p>:<><div className="rating-vote"><NeuButton aria-pressed={rating===true} onClick={()=>setRating(true)} icon={<ThumbsUp size={16}/>}>Thumbs up</NeuButton><NeuButton aria-pressed={rating===false} onClick={()=>setRating(false)} icon={<ThumbsDown size={16}/>}>Thumbs down</NeuButton></div><textarea className="neu-textarea" rows={2} maxLength={150} value={comment} onChange={e=>setComment(e.target.value)} placeholder="Add a short note (optional)"/>{rate.isError&&<p className="form-error" role="alert">{rate.error.message}</p>}<NeuButton variant="primary" disabled={rating===null||rate.isPending} onClick={()=>rate.mutate()}>{rate.isPending?'Saving…':'Submit rating'}</NeuButton></>}</div>}
       {action.isError && <p className="form-error" role="alert">{action.error.message}</p>}
       <div className="request-card__actions">
         {!request.isBorrower && request.status === 'pending' && <><NeuButton variant="primary" onClick={() => action.mutate({ name: 'accept' })} disabled={action.isPending} icon={<Check size={15} />}>Accept</NeuButton><NeuButton onClick={() => setDeclineOpen(true)} disabled={action.isPending} icon={<X size={15} />}>Decline</NeuButton></>}

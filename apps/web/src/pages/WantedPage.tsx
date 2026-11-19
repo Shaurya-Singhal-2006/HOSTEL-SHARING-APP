@@ -1,0 +1,84 @@
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, Check, Plus, Search } from 'lucide-react'
+import { apiRequest } from '../api/client'
+import ItemVisual from '../components/ItemVisual'
+import { NeuBadge, NeuButton, NeuCard, NeuChip, NeuEmptyState, NeuInput, NeuModal, NeuSkeleton } from '../components/ui'
+import { formatLocation } from '../items/location'
+import { ITEM_CATEGORIES } from '../items/types'
+import ReputationButton from '../components/ReputationButton'
+
+type Author = { id: string; name: string; floor: number | null; room: string | null; trustScore: number }
+type WantedPost = { id: string; title: string; category: string; note: string; neededBy: string | null; status: 'open'|'fulfilled'|'closed'; isExpired: boolean; createdAt: string; author: Author; responseCount: number; hasResponded: boolean; isAuthor: boolean }
+type Response = { id: string; message: string; createdAt: string; responder: Author & { phone?: string | null } }
+type Detail = WantedPost & { responses: Response[]; myResponse: { id: string; message: string } | null }
+type Feed = { posts: WantedPost[]; pagination: { hasMore: boolean; page: number } }
+const categories = ['All', ...ITEM_CATEGORIES]
+
+export default function WantedPage() {
+  const { id } = useParams()
+  return id ? <WantedDetail id={id} /> : <WantedFeed />
+}
+
+function WantedFeed() {
+  const client = useQueryClient()
+  const [tab, setTab] = useState<'board'|'mine'>('board')
+  const [category, setCategory] = useState('All')
+  const [floor, setFloor] = useState('')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [allPosts, setAllPosts] = useState<WantedPost[]>([])
+  const [createOpen, setCreateOpen] = useState(false)
+  const queryString = new URLSearchParams({ page: String(page), ...(category !== 'All' ? { category } : {}), ...(floor ? { floor } : {}), ...(search ? { search } : {}), ...(tab === 'mine' ? { mine: 'true' } : {}) }).toString()
+  const query = useQuery({ queryKey: ['wanted', tab, category, floor, search, page], queryFn: () => apiRequest<Feed>(`/api/wanted?${queryString}`) })
+  useEffect(()=>{if(query.data)setAllPosts(current=>page===1?query.data!.posts:[...current,...query.data!.posts])},[query.data,page])
+  const posts = allPosts
+  return <div className="wanted-page">
+    <div className="page-heading wanted-heading"><div><p className="section-kicker">THE HOSTEL WANTED BOARD</p><h1>Need something?</h1><p>Ask your neighbours. Someone nearby may already have it.</p></div><NeuButton className="wanted-fab" variant="primary" onClick={() => setCreateOpen(true)} icon={<Plus size={16} />}>Post a request</NeuButton></div>
+    <div className="wanted-controls"><div className="wanted-search"><Search size={18}/><input aria-label="Search wanted posts" value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}} placeholder="Search the board" /></div><label className="wanted-floor"><span>Floor</span><select value={floor} onChange={e=>{setFloor(e.target.value);setPage(1)}}><option value="">All floors</option>{[0,1,2,3,4,5].map(v=><option key={v} value={v}>{v===0?'Basement':`Floor ${v}`}</option>)}</select></label></div>
+    <div className="wanted-tabs"><NeuChip selected={tab==='board'} onClick={()=>{setTab('board');setPage(1)}}>Open board</NeuChip><NeuChip selected={tab==='mine'} onClick={()=>{setTab('mine');setPage(1)}}>My posts</NeuChip></div>
+    <div className="wanted-categories">{categories.map(value=><NeuChip key={value} selected={category===value} onClick={()=>{setCategory(value);setPage(1)}}>{value}</NeuChip>)}</div>
+    {query.isPending && <div className="wanted-grid">{[1,2,3].map(i=><NeuCard className="wanted-card" key={i}><NeuSkeleton/><NeuSkeleton/><NeuSkeleton/></NeuCard>)}</div>}
+    {query.isError && <NeuCard className="state-panel"><h2>The wanted board didn’t load</h2><p>{query.error.message}</p><NeuButton onClick={()=>void query.refetch()}>Try again</NeuButton></NeuCard>}
+    {query.isSuccess && !posts.length && <NeuCard className="state-panel"><NeuEmptyState title={tab==='mine'?'No posts yet':'No one needs anything right now'} description={tab==='mine'?'Requests you post will show up here.':'Post a request when you need something from a neighbour.'} action={<NeuButton variant="primary" onClick={()=>setCreateOpen(true)}>Post a request</NeuButton>}/></NeuCard>}
+    {!!posts.length && <div className="wanted-grid">{posts.map(post=><WantedCard key={post.id} post={post}/>)}</div>}
+    {query.data?.pagination.hasMore && <div className="wanted-paging"><NeuButton onClick={()=>setPage(page+1)}>Load more</NeuButton></div>}
+    <CreateWantedModal open={createOpen} onClose={()=>setCreateOpen(false)} onCreated={()=>{setTab('mine');setPage(1);void client.invalidateQueries({queryKey:['wanted']})}}/>
+  </div>
+}
+
+function WantedCard({post}:{post:WantedPost}) {
+  return <NeuCard as="article" className="wanted-card"><Link className="wanted-card__main" to={`/wanted/${post.id}`}><ItemVisual item={{title:post.title,category:post.category,photos:[]}} size="compact"/><span className="wanted-card__text"><span className="wanted-card__meta">{post.category} · {formatLocation(post.author.floor,post.author.room)||'Hostel member'}</span><strong>{post.title}</strong>{post.note&&<span className="wanted-card__note">{post.note}</span>}<span className="wanted-card__meta">{post.responseCount} {post.responseCount===1?'response':'responses'}{post.neededBy?` · Needed by ${post.neededBy}`:''}</span></span></Link><div className="wanted-card__author"><ReputationButton userId={post.author.id} name={post.author.name}/></div><span className="wanted-card__foot"><NeuBadge tone={post.isExpired?'danger':post.status==='open'?'success':'neutral'}>{post.isExpired?'Expired':post.status}</NeuBadge>{post.hasResponded&&<span className="wanted-you-responded">You responded</span>}{!post.isAuthor&&post.status==='open'&&!post.isExpired&&!post.hasResponded&&<Link className="neu-button neu-button--quiet" to={`/wanted/${post.id}`}>I can help</Link>}<Link className="wanted-open" to={`/wanted/${post.id}`}>View post</Link></span></NeuCard>
+}
+
+function CreateWantedModal({open,onClose,onCreated}:{open:boolean;onClose:()=>void;onCreated:()=>void}) {
+  const [title,setTitle]=useState('');const [category,setCategory]=useState('Other');const [note,setNote]=useState('');const [neededBy,setNeededBy]=useState('')
+  const navigate=useNavigate();const client=useQueryClient()
+  const suggestion=useQuery({queryKey:['wanted-suggestions',title],enabled:title.trim().length>=2,queryFn:()=>apiRequest<{items:Array<{id:string;title:string;category:string;owner:{floor:number|null;room:string|null}}> }>(`/api/items?available=true&page=1&search=${encodeURIComponent(title.trim())}`)})
+  const create=useMutation({mutationFn:()=>apiRequest<{post:WantedPost}>('/api/wanted',{method:'POST',body:{title,category,note:note||undefined,neededBy:neededBy||undefined}}),onSuccess:async({post})=>{onCreated();onClose();setTitle('');setNote('');await client.invalidateQueries({queryKey:['wanted']});navigate(`/wanted/${post.id}`)}})
+  return <NeuModal open={open} onClose={onClose} title="Post a request"><form className="wanted-form" onSubmit={e=>{e.preventDefault();create.mutate()}}>
+    <NeuInput label="What do you need?" value={title} onChange={e=>setTitle(e.target.value)} maxLength={80} required placeholder="e.g. A drill for a shelf"/>
+    {suggestion.data?.items.length ? <div className="wanted-suggestions"><strong>Someone already listed this</strong>{suggestion.data.items.slice(0,3).map(item=><Link key={item.id} to={`/items/${item.id}`} onClick={onClose}>{item.title} · {formatLocation(item.owner.floor,item.owner.room)||item.category} <span>View item →</span></Link>)}</div>:null}
+    <label className="field"><span className="field__label">Category</span><select className="neu-select" value={category} onChange={e=>setCategory(e.target.value)}>{ITEM_CATEGORIES.map(item=><option key={item}>{item}</option>)}</select></label>
+    <label className="field"><span className="field__label">Note (optional)</span><textarea className="neu-textarea" rows={3} maxLength={300} value={note} onChange={e=>setNote(e.target.value)} placeholder="Add a little detail"/></label>
+    <NeuInput label="Needed by (optional)" type="date" value={neededBy} min={new Date().toISOString().slice(0,10)} onChange={e=>setNeededBy(e.target.value)}/>
+    {create.isError&&<p className="form-error" role="alert">{create.error.message}</p>}<NeuButton type="submit" variant="primary" disabled={create.isPending}>{create.isPending?'Posting…':'Post request'}</NeuButton>
+  </form></NeuModal>
+}
+
+function WantedDetail({id}:{id:string}) {
+  const client=useQueryClient();const [message,setMessage]=useState('');const [selected,setSelected]=useState('');const navigate=useNavigate()
+  const query=useQuery({queryKey:['wanted-detail',id],queryFn:async()=> (await apiRequest<{post:Detail}>(`/api/wanted/${id}`)).post})
+  const refresh=async()=>{await Promise.all([client.invalidateQueries({queryKey:['wanted-detail',id]}),client.invalidateQueries({queryKey:['wanted']}),client.invalidateQueries({queryKey:['notifications']})])}
+  const respond=useMutation({mutationFn:()=>apiRequest(`/api/wanted/${id}/respond`,{method:'POST',body:{message}}),onSuccess:refresh})
+  const action=useMutation({mutationFn:({name,body}:{name:string;body?:unknown})=>apiRequest(`/api/wanted/${id}/${name}`,{method:name==='delete'?'DELETE':'PATCH',...(body===undefined?{}:{body})}),onSuccess:async()=>{await refresh();if(action.variables?.name==='delete')navigate('/wanted')}})
+  const post=query.data
+  if(query.isPending)return <NeuCard className="state-panel"><NeuSkeleton/><NeuSkeleton/><NeuSkeleton/></NeuCard>
+  if(query.isError||!post)return <NeuCard className="state-panel"><h2>Wanted post unavailable</h2><p>{query.error?.message??'Try again later.'}</p><Link to="/wanted" className="neu-button">Back to Wanted</Link></NeuCard>
+  const phone=(value:string)=>value.replace(/[^+0-9]/g,'')
+  return <div className="wanted-detail"><Link to="/wanted" className="back-link"><ArrowLeft size={16}/>Back to wanted</Link><NeuCard className="wanted-detail__card"><div className="wanted-detail__head"><ItemVisual item={{title:post.title,category:post.category,photos:[]}} size="detail"/><div><NeuBadge tone={post.isExpired?'danger':post.status==='open'?'success':'neutral'}>{post.isExpired?'Expired':post.status}</NeuBadge><p className="section-kicker">{post.category}</p><h1>{post.title}</h1><p>Posted by <ReputationButton userId={post.author.id} name={post.author.name}/> · {formatLocation(post.author.floor,post.author.room)||'Hostel member'}</p>{post.neededBy&&<p>Needed by {post.neededBy}</p>}</div></div>{post.note&&<p className="wanted-detail__note">{post.note}</p>}
+    <div className="wanted-detail__responses"><h2>{post.isAuthor?'Responses':`${post.responseCount} ${post.responseCount===1?'person':'people'} can help`}</h2>{post.isAuthor&&post.responses.length===0&&<p>No one has responded yet. We’ll let you know when someone can help.</p>}{post.isAuthor&&post.responses.map(response=><article className="wanted-response" key={response.id}><div><strong><ReputationButton userId={response.responder.id} name={response.responder.name}/></strong><span>{formatLocation(response.responder.floor,response.responder.room)||'Hostel member'}</span>{response.message&&<p>{response.message}</p>}</div>{response.responder.phone&&<div className="wanted-response__contact"><a href={`tel:${phone(response.responder.phone)}`}>Call</a><a href={`https://wa.me/${phone(response.responder.phone).replace(/\D/g,'')}`} target="_blank" rel="noreferrer">WhatsApp</a></div>}{post.status==='open'&&<label className="helper-select"><input type="radio" name="helper" checked={selected===response.id} onChange={()=>setSelected(response.id)}/> Select helper</label>}</article>)}{!post.isAuthor&&post.myResponse&&<NeuBadge tone="success"><Check size={13}/>You responded</NeuBadge>}{!post.isAuthor&&!post.myResponse&&post.status==='open'&&!post.isExpired&&<form className="wanted-form" onSubmit={e=>{e.preventDefault();respond.mutate()}}><label className="field"><span className="field__label">A short message (optional)</span><textarea className="neu-textarea" maxLength={200} rows={3} value={message} onChange={e=>setMessage(e.target.value)} placeholder="I have one you can borrow"/></label>{respond.isError&&<p role="alert" className="form-error">{respond.error.message}</p>}<NeuButton type="submit" variant="primary" disabled={respond.isPending}>{respond.isPending?'Sending…':'I can help'}</NeuButton></form>}{!post.isAuthor&&!post.myResponse&&post.status!=='open'&&!post.isExpired&&<p>This post is no longer accepting responses.</p>}{!post.isAuthor&&post.isExpired&&!post.myResponse&&<p>This post has expired and is no longer accepting responses.</p>}</div>
+    {post.isAuthor&&<div className="wanted-detail__actions">{post.status==='open'&&<><NeuButton variant="primary" icon={<Check size={15}/>} disabled={action.isPending} onClick={()=>action.mutate({name:'fulfill',body:{responseId:selected||undefined}})}>Mark fulfilled</NeuButton><NeuButton disabled={action.isPending} onClick={()=>action.mutate({name:'close'})}>Close post</NeuButton></>}<NeuButton disabled={action.isPending} onClick={()=>{if(window.confirm('Delete this wanted post?'))action.mutate({name:'delete'})}}>Delete</NeuButton></div>}{(action.isError||respond.isError)&&<p className="form-error" role="alert">{(action.error??respond.error)?.message}</p>}
+  </NeuCard></div>
+}

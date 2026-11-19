@@ -14,7 +14,7 @@ import HomePage from './pages/HomePage'
 import ItemDetailPage from './pages/ItemDetailPage'
 import ItemFormPage from './pages/ItemFormPage'
 import MyItemsPage from './pages/MyItemsPage'
-import ComingSoonPage from './pages/ComingSoonPage'
+import WantedPage from './pages/WantedPage'
 import AppShell from './components/AppShell'
 import RequestsPage from './pages/RequestsPage'
 import './styles.css'
@@ -36,7 +36,8 @@ function App() {
             <Route path="/profile" element={<ProtectedRoute page="profile"><AppShell><ProfilePage /></AppShell></ProtectedRoute>} />
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
             <Route path="/" element={<ProtectedRoute page="app"><AppShell><HomePage /></AppShell></ProtectedRoute>} />
-            <Route path="/wanted" element={<ProtectedRoute page="app"><AppShell><ComingSoonPage /></AppShell></ProtectedRoute>} />
+            <Route path="/wanted" element={<ProtectedRoute page="app"><AppShell><WantedPage /></AppShell></ProtectedRoute>} />
+            <Route path="/wanted/:id" element={<ProtectedRoute page="app"><AppShell><WantedPage /></AppShell></ProtectedRoute>} />
             <Route path="/requests" element={<ProtectedRoute page="app"><AppShell><RequestsPage /></AppShell></ProtectedRoute>} />
             <Route path="/my-items" element={<ProtectedRoute page="app"><AppShell><MyItemsPage /></AppShell></ProtectedRoute>} />
             <Route path="/items/new" element={<ProtectedRoute page="app"><AppShell><ItemFormPage /></AppShell></ProtectedRoute>} />
