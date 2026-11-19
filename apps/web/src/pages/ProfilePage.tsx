@@ -6,6 +6,7 @@ import { apiRequest } from '../api/client'
 import { ME_QUERY_KEY, type CurrentUser, useAuth } from '../auth/AuthProvider'
 import ProfileEditor from '../components/ProfileEditor'
 import { NeuAvatar, NeuButton, NeuCard } from '../components/ui'
+import { formatLocation } from '../items/location'
 
 function safeAvatar(url: string | null): string | null {
   if (!url) return null
@@ -42,7 +43,7 @@ export default function ProfilePage() {
             {avatar ? <img className="profile-photo" src={avatar} alt="" referrerPolicy="no-referrer" /> : <NeuAvatar name={user.name} size="lg" />}
             <div><h2>{user.name}</h2><p>{user.email}</p></div>
           </div>
-          <div className="profile-detail"><MapPin size={17} /><span>{user.block ? `Block ${user.block}` : 'Block not set'}{user.floor ? ` · Floor ${user.floor}` : ''}{user.room ? ` · Room ${user.room}` : ''}</span></div>
+          <div className="profile-detail"><MapPin size={17} /><span>{formatLocation(user.floor, user.room)}</span></div>
           <div className="profile-detail"><ShieldCheck size={17} /><span>Member of LendLoop Hostel</span></div>
           <div className="profile-summary__note">Your phone number stays private and is only shared when a borrow request is accepted.</div>
           {logoutError && <p className="auth-error" role="alert">{logoutError}</p>}
@@ -55,7 +56,7 @@ export default function ProfilePage() {
             onSave={async (values) => {
               const result = await apiRequest<{ user: CurrentUser }>('/api/me', {
                 method: 'PATCH',
-                body: { ...values, floor: Number(values.floor), phone: values.phone || null },
+                body: { name: values.name, floor: Number(values.floor), room: values.room, phone: values.phone || null },
               })
               queryClient.setQueryData(ME_QUERY_KEY, result.user)
             }}

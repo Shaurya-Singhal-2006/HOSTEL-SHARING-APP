@@ -8,7 +8,6 @@ import { prisma } from '../lib/prisma.js'
 import { deleteImages, saveImage } from '../services/storage.service.js'
 import { ITEM_CATEGORIES, sanitizeText, serializeItem, type PublicOwner } from '../services/item.service.js'
 
-const blockSchema = z.enum(['A', 'B', 'C', 'D', 'E'])
 const categorySchema = z.enum(ITEM_CATEGORIES)
 const conditionSchema = z.enum(['New', 'Good', 'Used'])
 const textSchema = (minimum: number, maximum: number) => z.string().transform(sanitizeText).pipe(z.string().min(minimum).max(maximum))
@@ -32,13 +31,12 @@ const idSchema = z.string().uuid()
 const listQuerySchema = z.object({
   search: z.string().trim().max(100).default(''),
   category: categorySchema.optional(),
-  block: blockSchema.optional(),
-  floor: z.coerce.number().int().min(1).max(5).optional(),
+  floor: z.coerce.number().int().min(0).max(5).optional(),
   available: z.enum(['true', 'false']).optional(),
   page: z.coerce.number().int().min(1).max(10000).default(1),
 }).strict()
 
-const ownerSelect = { id: true, name: true, block: true, floor: true, avatarUrl: true, trustScore: true } as const
+const ownerSelect = { id: true, name: true, floor: true, room: true, avatarUrl: true, trustScore: true } as const
 const itemInclude = { owner: { select: ownerSelect } } as const
 const files = (req: Parameters<RequestHandler>[0]) => (req.files ?? []) as Express.Multer.File[]
 
@@ -60,8 +58,7 @@ export const listItems: RequestHandler = asyncHandler(async (req, res) => {
   ]
   if (query.available === 'true') conditions.push(Prisma.sql`i.status = 'available'`)
   if (query.category) conditions.push(Prisma.sql`i.category = ${query.category}`)
-  if (query.block) conditions.push(Prisma.sql`owner.block = ${query.block}`)
-  if (query.floor) conditions.push(Prisma.sql`owner.floor = ${query.floor}`)
+  if (query.floor !== undefined) conditions.push(Prisma.sql`owner.floor = ${query.floor}`)
   const search = query.search.replace(/[%_\\]/g, '').trim()
   if (search) {
     const partial = `%${search}%`
@@ -76,11 +73,11 @@ export const listItems: RequestHandler = asyncHandler(async (req, res) => {
     prisma.$queryRaw<Array<{
       id: string; community_id: string; owner_id: string; title: string; description: string; category: string;
       condition: string; photos: string[]; status: ItemStatus; max_lend_days: number; created_at: Date;
-      owner_name: string; owner_block: string | null; owner_floor: number | null; owner_avatar_url: string | null; owner_trust_score: number;
+      owner_name: string; owner_floor: number | null; owner_room: string | null; owner_avatar_url: string | null; owner_trust_score: number;
     }>>(Prisma.sql`
       SELECT i.id, i.community_id, i.owner_id, i.title, i.description, i.category, i.condition, i.photos,
              i.status, i.max_lend_days, i.created_at,
-             owner.name AS owner_name, owner.block AS owner_block, owner.floor AS owner_floor,
+             owner.name AS owner_name, owner.floor AS owner_floor, owner.room AS owner_room,
              owner.avatar_url AS owner_avatar_url, owner.trust_score AS owner_trust_score
       FROM items i JOIN users owner ON owner.id = i.owner_id
       WHERE ${whereSql}
@@ -105,7 +102,7 @@ export const listItems: RequestHandler = asyncHandler(async (req, res) => {
       status: row.status,
       maxLendDays: row.max_lend_days,
       createdAt: row.created_at,
-      owner: { id: row.owner_id, name: row.owner_name, block: row.owner_block, floor: row.owner_floor, avatarUrl: row.owner_avatar_url, trustScore: row.owner_trust_score } as PublicOwner,
+      owner: { id: row.owner_id, name: row.owner_name, floor: row.owner_floor, room: row.owner_room, avatarUrl: row.owner_avatar_url, trustScore: row.owner_trust_score } as PublicOwner,
     }
     return serializeItem(item, user.id)
   })
@@ -137,7 +134,7 @@ export const createItem: RequestHandler = asyncHandler(async (req, res) => {
   const user = req.currentUser!
   const input = createSchema.parse(req.body)
   const uploadedFiles = files(req)
-  if (uploadedFiles.length < 1 || uploadedFiles.length > 3) throw new HttpError(400, 'Choose between 1 and 3 photos.')
+  if (uploadedFiles.length > 3) throw new HttpError(400, 'Choose no more than 3 photos.')
   const id = randomUUID()
   const photoPaths: string[] = []
   let item
@@ -179,7 +176,6 @@ export const updateItem: RequestHandler = asyncHandler(async (req, res) => {
     throw new HttpError(400, 'One or more selected photos do not belong to this item.')
   }
   const nextPhotos = existing.photos.filter((photoPath) => !removePhotos.includes(photoPath))
-  if (nextPhotos.length + uploadedFiles.length < 1) throw new HttpError(400, 'Keep at least one photo on this listing.')
   if (nextPhotos.length + uploadedFiles.length > 3) throw new HttpError(400, 'An item can have no more than 3 photos.')
   const addedPaths: string[] = []
   const { max_lend_days: maxLendDays, ...itemFields } = input

@@ -8,7 +8,6 @@ declare global {
         email: string
         avatarUrl: string | null
         joinedHostel: boolean
-        block: string | null
         floor: number | null
         room: string | null
         phone: string | null

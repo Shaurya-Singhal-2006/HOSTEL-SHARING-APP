@@ -8,9 +8,9 @@ if (process.env.NODE_ENV === 'production') {
 const prisma = new PrismaClient()
 const communityId = '00000000-0000-4000-8000-000000000001'
 const users = [
-  { id: '20000000-0000-4000-8000-000000000001', name: 'Maya Iyer', email: 'maya.demo@example.test', block: 'B', floor: 2, room: '214', trustScore: 8 },
-  { id: '20000000-0000-4000-8000-000000000002', name: 'Kabir Rao', email: 'kabir.demo@example.test', block: 'D', floor: 3, room: '318', trustScore: 5 },
-  { id: '20000000-0000-4000-8000-000000000003', name: 'Zoya Khan', email: 'zoya.demo@example.test', block: 'A', floor: 1, room: '106', trustScore: 12 },
+  { id: '20000000-0000-4000-8000-000000000001', name: 'Maya Iyer', email: 'maya.demo@example.test', floor: 2, room: 'B16', trustScore: 8 },
+  { id: '20000000-0000-4000-8000-000000000002', name: 'Kabir Rao', email: 'kabir.demo@example.test', floor: 0, room: 'D3', trustScore: 5 },
+  { id: '20000000-0000-4000-8000-000000000003', name: 'Zoya Khan', email: 'zoya.demo@example.test', floor: 1, room: 'A7', trustScore: 12 },
 ] as const
 
 const samples = [
@@ -36,7 +36,7 @@ async function main() {
   for (const user of users) {
     await prisma.user.upsert({
       where: { id: user.id },
-      update: { name: user.name, communityId, joinedHostel: true, block: user.block, floor: user.floor, room: user.room, trustScore: user.trustScore },
+      update: { name: user.name, communityId, joinedHostel: true, floor: user.floor, room: user.room, trustScore: user.trustScore },
       create: { ...user, communityId, joinedHostel: true },
     })
   }

@@ -19,7 +19,7 @@ export default function OnboardingPage() {
       onSave={async (values) => {
         const result = await apiRequest<{ user: CurrentUser }>('/api/me', {
           method: 'PATCH',
-          body: { ...values, floor: Number(values.floor), phone: values.phone || null },
+          body: { name: values.name, floor: Number(values.floor), room: values.room, phone: values.phone || null },
         })
         queryClient.setQueryData(ME_QUERY_KEY, result.user)
         navigate('/', { replace: true })

@@ -3,8 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ChevronLeft, ChevronRight, Edit3, MapPin, ShieldCheck, Trash2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { apiRequest } from '../api/client'
-import { NeuAvatar, NeuBadge, NeuButton, NeuCard, NeuSkeleton } from '../components/ui'
+import { NeuAvatar, NeuBadge, NeuButton, NeuCard, NeuInput, NeuModal, NeuSkeleton } from '../components/ui'
 import type { ItemRecord } from '../items/types'
+import ItemVisual from '../components/ItemVisual'
+import { formatLocation } from '../items/location'
 
 export default function ItemDetailPage() {
   const { id = '' } = useParams()
@@ -12,6 +14,7 @@ export default function ItemDetailPage() {
   const queryClient = useQueryClient()
   const [photoIndex, setPhotoIndex] = useState(0)
   const [deleteError, setDeleteError] = useState('')
+  const [requestOpen, setRequestOpen] = useState(false)
   const itemQuery = useQuery({
     queryKey: ['item', id],
     queryFn: async () => (await apiRequest<{ item: ItemRecord }>(`/api/items/${id}`)).item,
@@ -30,21 +33,21 @@ export default function ItemDetailPage() {
   if (itemQuery.isError || !itemQuery.data) return <NeuCard className="state-panel"><h1>We couldn’t find this item</h1><p>{itemQuery.error?.message ?? 'This listing may have been removed.'}</p><Link to="/" className="neu-button neu-button--primary"><ArrowLeft size={16} />Back to home</Link></NeuCard>
   const item = itemQuery.data
   const photo = item.photos[photoIndex]
-  const location = [item.owner.block ? `Block ${item.owner.block}` : '', item.owner.floor ? `Floor ${item.owner.floor}` : ''].filter(Boolean).join(' · ')
+  const location = formatLocation(item.owner.floor, item.owner.room)
 
   return <div className="detail-page">
     <Link to={item.isOwner ? '/my-items' : '/'} className="back-link"><ArrowLeft size={16} />Back to listings</Link>
     <div className="detail-layout">
       <NeuCard className="detail-gallery">
         <div className="detail-gallery__stage">
-          {photo ? <img src={photo.url} alt={`${item.title} photo ${photoIndex + 1}`} /> : <div className="detail-gallery__empty" aria-label="No photos available"><PackageIcon /></div>}
+          {photo ? <ItemVisual item={{ ...item, photos: [photo] }} size="detail" /> : <ItemVisual item={item} size="detail" />}
           {item.photos.length > 1 && <>
             <button type="button" className="gallery-control gallery-control--left" aria-label="Previous photo" onClick={() => setPhotoIndex((index) => (index - 1 + item.photos.length) % item.photos.length)}><ChevronLeft /></button>
             <button type="button" className="gallery-control gallery-control--right" aria-label="Next photo" onClick={() => setPhotoIndex((index) => (index + 1) % item.photos.length)}><ChevronRight /></button>
             <span className="gallery-count" aria-live="polite">{photoIndex + 1} / {item.photos.length}</span>
           </>}
         </div>
-        {item.photos.length > 1 && <div className="detail-thumbnails">{item.photos.map((image, index) => <button type="button" key={image.path} aria-label={`Show photo ${index + 1}`} aria-pressed={index === photoIndex} onClick={() => setPhotoIndex(index)}><img src={image.thumbnailUrl} alt="" /></button>)}</div>}
+        {item.photos.length > 1 && <div className="detail-thumbnails">{item.photos.map((image, index) => <button type="button" key={image.path} aria-label={`Show photo ${index + 1}`} aria-pressed={index === photoIndex} onClick={() => setPhotoIndex(index)}><ItemVisual item={{ ...item, photos: [image] }} size="compact" /></button>)}</div>}
       </NeuCard>
       <section className="detail-copy">
         <div className="detail-topline"><span className="section-kicker">{item.category.toUpperCase()}</span><NeuBadge tone={item.status === 'available' ? 'success' : item.status === 'hidden' ? 'neutral' : 'warning'}>{item.status === 'available' ? 'Available now' : item.status === 'hidden' ? 'Hidden from browse' : 'Currently lent'}</NeuBadge></div>
@@ -56,13 +59,41 @@ export default function ItemDetailPage() {
           <div className="detail-owner__info"><span className="section-kicker">SHARED BY</span><strong>{item.owner.name}</strong><small><MapPin size={13} />{location || 'Hostel member'}</small></div>
           <div className="detail-owner__trust"><ShieldCheck size={17} /><strong>{item.owner.trustScore}</strong><small>trust</small></div>
         </NeuCard>
-        {item.isOwner ? <div className="detail-owner-actions"><Link to={`/items/${item.id}/edit`} className="neu-button neu-button--primary"><Edit3 size={16} />Edit item</Link><NeuButton onClick={() => { setDeleteError(''); if (window.confirm('Delete this listing and its photos?')) deleteMutation.mutate() }} disabled={deleteMutation.isPending} icon={<Trash2 size={16} />}>{deleteMutation.isPending ? 'Deleting…' : 'Delete'}</NeuButton></div> : <NeuButton variant="primary" className="detail-request" disabled title="Borrow requests are coming in Phase 4">Request to borrow</NeuButton>}
+        {item.isOwner ? <div className="detail-owner-actions"><Link to={`/items/${item.id}/edit`} className="neu-button neu-button--primary"><Edit3 size={16} />Edit item</Link><NeuButton onClick={() => { setDeleteError(''); if (window.confirm('Delete this listing and its photos?')) deleteMutation.mutate() }} disabled={deleteMutation.isPending} icon={<Trash2 size={16} />}>{deleteMutation.isPending ? 'Deleting…' : 'Delete'}</NeuButton></div> : item.status === 'available' ? <NeuButton variant="primary" className="detail-request" onClick={() => setRequestOpen(true)}>Request to borrow</NeuButton> : <p className="detail-unavailable">{item.status === 'lent' ? 'Currently lent' : 'This item is not available right now.'}</p>}
+        <RequestBorrowModal item={item} open={requestOpen} onClose={() => setRequestOpen(false)} />
         {deleteError && <p className="form-error" role="alert">{deleteError}</p>}
       </section>
     </div>
   </div>
 }
 
-function PackageIcon() {
-  return <svg width="72" height="64" viewBox="0 0 58 50" fill="none" aria-hidden="true"><path d="m8 15 20-9 21 9-20 10-21-10Z" stroke="currentColor"/><path d="M8 15v22l21 9V25M49 15v22l-20 9" stroke="currentColor"/></svg>
+function RequestBorrowModal({ item, open, onClose }: { item: ItemRecord; open: boolean; onClose: () => void }) {
+  const queryClient = useQueryClient()
+  const today = new Date()
+  const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const [fromDate, setFromDate] = useState(todayString)
+  const [toDate, setToDate] = useState(todayString)
+  const [note, setNote] = useState('')
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+  const maxDate = new Date(`${fromDate}T12:00:00`)
+  maxDate.setDate(maxDate.getDate() + item.maxLendDays - 1)
+  const maxToDate = `${maxDate.getFullYear()}-${String(maxDate.getMonth() + 1).padStart(2, '0')}-${String(maxDate.getDate()).padStart(2, '0')}`
+  const mutation = useMutation({
+    mutationFn: () => apiRequest('/api/requests', { method: 'POST', body: { itemId: item.id, fromDate, toDate, note } }),
+    onSuccess: async () => {
+      setSuccess(true)
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ['requests'] }), queryClient.invalidateQueries({ queryKey: ['notifications'] })])
+    },
+    onError: (caught) => setError(caught instanceof Error ? caught.message : 'Could not send your request.'),
+  })
+  return <NeuModal open={open} onClose={() => { onClose(); setSuccess(false); setError('') }} title={success ? 'Request sent' : `Borrow ${item.title}`}>
+    {success ? <div className="request-modal-success"><p>Your request is with the owner. We’ll let you know when they respond.</p><NeuButton variant="primary" onClick={() => { onClose(); setSuccess(false) }}>Done</NeuButton></div> : <form className="request-modal-form" onSubmit={(event) => { event.preventDefault(); setError(''); if (toDate < fromDate) { setError('The end date must be on or after the start date.'); return } mutation.mutate() }}>
+      <div className="item-form__row"><NeuInput label="From" type="date" value={fromDate} min={todayString} onChange={(event) => { setFromDate(event.target.value); if (toDate < event.target.value) setToDate(event.target.value) }} required /><NeuInput label="To" type="date" value={toDate} min={fromDate} max={maxToDate} onChange={(event) => setToDate(event.target.value)} required /></div>
+      <label className="field"><span className="field__label">Note (optional)</span><textarea className="neu-textarea" rows={3} maxLength={300} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Add a short note for the owner" /></label>
+      <p className="request-modal-hint">Up to {item.maxLendDays} days. Your contact details are shared only if the owner accepts.</p>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <NeuButton variant="primary" type="submit" disabled={mutation.isPending}>{mutation.isPending ? 'Sending…' : 'Send request'}</NeuButton>
+    </form>}
+  </NeuModal>
 }

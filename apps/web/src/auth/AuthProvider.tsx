@@ -13,7 +13,6 @@ export type CurrentUser = {
   email: string
   avatarUrl: string | null
   joinedHostel: boolean
-  block: string | null
   floor: number | null
   room: string | null
   phone: string | null
@@ -77,7 +76,7 @@ export function useAuth() {
 }
 
 export function profileIsComplete(user: CurrentUser | null): boolean {
-  return Boolean(user?.name.trim() && user.block && user.floor && user.room?.trim())
+  return Boolean(user?.name.trim() && user.floor !== null && /^[A-Z][0-9]{1,3}$/.test(user.room?.trim().toUpperCase() ?? ''))
 }
 
 export function routeForUser(user: CurrentUser | null): string {

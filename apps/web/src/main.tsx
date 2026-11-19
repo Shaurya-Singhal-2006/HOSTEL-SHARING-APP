@@ -16,6 +16,7 @@ import ItemFormPage from './pages/ItemFormPage'
 import MyItemsPage from './pages/MyItemsPage'
 import ComingSoonPage from './pages/ComingSoonPage'
 import AppShell from './components/AppShell'
+import RequestsPage from './pages/RequestsPage'
 import './styles.css'
 
 const queryClient = new QueryClient({
@@ -36,7 +37,7 @@ function App() {
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
             <Route path="/" element={<ProtectedRoute page="app"><AppShell><HomePage /></AppShell></ProtectedRoute>} />
             <Route path="/wanted" element={<ProtectedRoute page="app"><AppShell><ComingSoonPage /></AppShell></ProtectedRoute>} />
-            <Route path="/requests" element={<ProtectedRoute page="app"><AppShell><ComingSoonPage /></AppShell></ProtectedRoute>} />
+            <Route path="/requests" element={<ProtectedRoute page="app"><AppShell><RequestsPage /></AppShell></ProtectedRoute>} />
             <Route path="/my-items" element={<ProtectedRoute page="app"><AppShell><MyItemsPage /></AppShell></ProtectedRoute>} />
             <Route path="/items/new" element={<ProtectedRoute page="app"><AppShell><ItemFormPage /></AppShell></ProtectedRoute>} />
             <Route path="/items/:id/edit" element={<ProtectedRoute page="app"><AppShell><ItemFormPage /></AppShell></ProtectedRoute>} />

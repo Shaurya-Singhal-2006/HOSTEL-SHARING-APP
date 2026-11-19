@@ -59,13 +59,12 @@ export function toCurrentUser(user: {
   email: string
   avatarUrl: string | null
   joinedHostel: boolean
-  block: string | null
   floor: number | null
   room: string | null
   phone: string | null
   trustScore: number
 }) {
-  const profileComplete = Boolean(user.name.trim() && user.block && user.floor && user.room?.trim())
+  const profileComplete = Boolean(user.name.trim() && user.floor !== null && /^[A-Z][0-9]{1,3}$/.test(user.room?.trim().toUpperCase() ?? ''))
   return {
     id: user.id,
     communityId: user.communityId,
@@ -73,7 +72,6 @@ export function toCurrentUser(user: {
     email: user.email,
     avatarUrl: user.avatarUrl,
     joinedHostel: user.joinedHostel,
-    block: user.block,
     floor: user.floor,
     room: user.room,
     phone: user.phone,

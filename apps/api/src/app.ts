@@ -11,6 +11,8 @@ import { meRouter } from './routes/me.routes.js'
 import { itemsRouter } from './routes/items.routes.js'
 import { categoriesRouter } from './routes/categories.routes.js'
 import { uploadsStatic } from './services/storage.service.js'
+import { requestsRouter } from './routes/requests.routes.js'
+import { notificationsRouter } from './routes/notifications.routes.js'
 
 export const app = express()
 
@@ -36,6 +38,8 @@ app.use('/api/me', meRouter)
 app.use('/api/join', joinRouter)
 app.use('/api/items', itemsRouter)
 app.use('/api/categories', categoriesRouter)
+app.use('/api/requests', requestsRouter)
+app.use('/api/notifications', notificationsRouter)
 
 app.use(notFoundHandler)
 app.use(errorHandler)

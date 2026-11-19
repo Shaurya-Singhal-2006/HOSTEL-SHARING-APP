@@ -13,7 +13,6 @@ export default function HomePage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [category, setCategory] = useState('All items')
   const [available, setAvailable] = useState(false)
-  const [block, setBlock] = useState('')
   const [floor, setFloor] = useState('')
 
   useEffect(() => {
@@ -21,7 +20,7 @@ export default function HomePage() {
     return () => window.clearTimeout(timer)
   }, [search])
 
-  const filters = useMemo(() => ({ debouncedSearch, category, available, block, floor }), [debouncedSearch, category, available, block, floor])
+  const filters = useMemo(() => ({ debouncedSearch, category, available, floor }), [debouncedSearch, category, available, floor])
   const itemsQuery = useInfiniteQuery({
     queryKey: ['items', 'browse', filters],
     initialPageParam: 1,
@@ -30,7 +29,6 @@ export default function HomePage() {
       if (filters.debouncedSearch) params.set('search', filters.debouncedSearch)
       if (filters.category !== 'All items') params.set('category', filters.category)
       if (filters.available) params.set('available', 'true')
-      if (filters.block) params.set('block', filters.block)
       if (filters.floor) params.set('floor', filters.floor)
       return apiRequest<ItemListResponse>(`/api/items?${params.toString()}`)
     },
@@ -48,8 +46,7 @@ export default function HomePage() {
       <label className="browse-search"><Search size={20} /><span className="sr-only">Search items</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tools, kitchen, electronics…" maxLength={100} /></label>
       <div className="browse-controls__filters">
         <NeuToggle checked={available} onChange={setAvailable} label="Available now" />
-        <label className="filter-select"><span className="sr-only">Filter by block</span><select className="neu-select" value={block} onChange={(event) => setBlock(event.target.value)}><option value="">All blocks</option>{['A', 'B', 'C', 'D', 'E'].map((value) => <option value={value} key={value}>Block {value}</option>)}</select></label>
-        <label className="filter-select"><span className="sr-only">Filter by floor</span><select className="neu-select" value={floor} onChange={(event) => setFloor(event.target.value)}><option value="">All floors</option>{[1, 2, 3, 4, 5].map((value) => <option value={value} key={value}>Floor {value}</option>)}</select></label>
+        <label className="filter-select"><span className="sr-only">Filter by floor</span><select className="neu-select" value={floor} onChange={(event) => setFloor(event.target.value)}><option value="">All floors</option>{[0, 1, 2, 3, 4, 5].map((value) => <option value={value} key={value}>{value === 0 ? 'Basement' : `Floor ${value}`}</option>)}</select></label>
       </div>
     </section>
 

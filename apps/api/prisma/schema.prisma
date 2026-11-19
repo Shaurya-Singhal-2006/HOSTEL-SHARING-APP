@@ -26,6 +26,14 @@ enum WantedStatus {
   fulfilled
 }
 
+enum NotificationType {
+  request_made
+  request_accepted
+  request_declined
+  request_cancelled
+  request_returned
+}
+
 model Community {
   id          String       @id @default(uuid()) @db.Uuid
   name        String
@@ -45,7 +53,6 @@ model User {
   googleId    String?          @unique @map("google_id")
   avatarUrl   String?          @map("avatar_url")
   joinedHostel Boolean         @default(false) @map("joined_hostel")
-  block       String?          @db.Char(1)
   floor       Int?
   room        String?
   phone       String?
@@ -55,13 +62,13 @@ model User {
   items       Item[]
   borrowed    BorrowRequest[]  @relation("BorrowerRequests")
   owned       BorrowRequest[]  @relation("OwnerRequests")
+  notifications Notification[]
   wantedPosts WantedPost[]
   responses   WantedResponse[]
   ratingsFrom Rating[]         @relation("RatingFrom")
   ratingsTo   Rating[]         @relation("RatingTo")
-
   @@index([communityId])
-  @@index([communityId, block, floor])
+  @@index([communityId, floor])
   @@map("users")
 }
 
@@ -100,16 +107,36 @@ model BorrowRequest {
   note       String
   status     RequestStatus @default(pending)
   createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  returnedAt DateTime?     @map("returned_at") @db.Timestamptz(6)
+  declineReason String?    @map("decline_reason") @db.VarChar(200)
   item       Item          @relation(fields: [itemId], references: [id], onDelete: Cascade)
   borrower  User          @relation("BorrowerRequests", fields: [borrowerId], references: [id], onDelete: Cascade)
   owner     User          @relation("OwnerRequests", fields: [ownerId], references: [id], onDelete: Cascade)
   ratings   Rating[]
+  notifications Notification[]
 
   @@index([status])
   @@index([ownerId])
   @@index([borrowerId])
-  @@index([itemId])
+  @@index([itemId, status])
   @@map("requests")
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  requestId String           @map("request_id") @db.Uuid
+  message   String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  request   BorrowRequest    @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([requestId])
+  @@map("notifications")
 }
 
 model WantedPost {

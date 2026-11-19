@@ -4,6 +4,7 @@ import { ArrowLeft, ImagePlus, X } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { apiUpload, ApiError, apiRequest } from '../api/client'
 import { NeuButton, NeuCard, NeuInput, NeuSkeleton } from '../components/ui'
+import ItemVisual from '../components/ItemVisual'
 import type { ItemRecord } from '../items/types'
 import { ITEM_CATEGORIES } from '../items/types'
 
@@ -90,8 +91,8 @@ export default function ItemFormPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
-    if (photoCount < 1 || photoCount > 3) {
-      setError('Keep between 1 and 3 photos on this listing.')
+    if (photoCount > 3) {
+      setError('Choose no more than 3 photos.')
       return
     }
     const days = Number(maxLendDays)
@@ -127,7 +128,8 @@ export default function ItemFormPage() {
         </div>
         <NeuInput label="Maximum loan period (days)" type="number" min={1} max={365} value={maxLendDays} onChange={(event) => setMaxLendDays(event.target.value)} required />
         <div className="photo-field">
-          <div className="photo-field__heading"><div><h2>Photos</h2><p>JPEG, PNG or WebP · up to 5 MB each · 1–3 photos</p></div><span>{photoCount}/3</span></div>
+          <div className="photo-field__heading"><div><h2>Add a photo (optional)</h2><p>JPEG, PNG or WebP · up to 5 MB each · up to 3 photos</p></div><span>{photoCount}/3</span></div>
+          <div className="item-live-preview"><span>Live preview</span><ItemVisual item={{ title, category, photos: [] }} size="compact" /><strong>{title || 'Your item'}</strong></div>
           <div className="photo-previews">
             {keptPhotos.map((photo) => <div className="photo-preview" key={photo.path}><img src={photo.thumbnailUrl} alt="Current item" /><button type="button" className="photo-preview__remove" aria-label="Remove existing photo" onClick={() => toggleExistingPhoto(photo.path)}><X size={15} /></button></div>)}
             {newPhotoPreviews.map((src, index) => <div className="photo-preview" key={`${newPhotos[index]?.name}-${index}`}><img src={src} alt={`New photo ${index + 1} preview`} /><button type="button" className="photo-preview__remove" aria-label={`Remove selected photo ${index + 1}`} onClick={() => removeNewPhoto(index)}><X size={15} /></button></div>)}

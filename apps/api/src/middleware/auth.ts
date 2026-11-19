@@ -16,7 +16,7 @@ export const requireAuth: RequestHandler = asyncHandler(async (req, res, next) =
     where: { id: userId },
     select: {
       id: true, communityId: true, name: true, email: true, avatarUrl: true,
-      joinedHostel: true, block: true, floor: true, room: true, phone: true, trustScore: true,
+      joinedHostel: true, floor: true, room: true, phone: true, trustScore: true,
     },
   })
   if (!user) {
@@ -36,8 +36,8 @@ export const requireJoined: RequestHandler = (req, _res, next) => {
 export const requireCompleteProfile: RequestHandler = (req, _res, next) => {
   const user = req.currentUser
   const complete = Boolean(
-    user?.name.trim() && user.block && /^[A-E]$/.test(user.block) &&
-    user.floor && user.floor >= 1 && user.floor <= 5 && user.room?.trim(),
+    user?.name.trim() && user.floor !== null && user.floor >= 0 && user.floor <= 5 &&
+    /^[A-Z][0-9]{1,3}$/.test(user.room?.trim().toUpperCase() ?? ''),
   )
   if (!complete) return next(new HttpError(403, 'Complete your profile to continue.'))
   next()

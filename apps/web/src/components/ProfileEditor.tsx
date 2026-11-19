@@ -3,12 +3,11 @@ import type { CurrentUser } from '../auth/AuthProvider'
 import { ApiError } from '../api/client'
 import { NeuButton, NeuInput } from './ui'
 
-export type ProfileValues = { name: string; block: string; floor: string; room: string; phone: string }
+export type ProfileValues = { name: string; floor: string; room: string; phone: string }
 
 function valuesFromUser(user: CurrentUser): ProfileValues {
   return {
     name: user.name,
-    block: user.block ?? '',
     floor: user.floor?.toString() ?? '',
     room: user.room ?? '',
     phone: user.phone ?? '',
@@ -52,20 +51,14 @@ export default function ProfileEditor({
   return <form className="profile-form" onSubmit={submit}>
     <NeuInput label="Name" value={values.name} onChange={(event) => update('name', event.target.value)} autoComplete="name" required maxLength={80} />
     <div className="profile-form__row">
-      <label className="field"><span className="field__label">Block</span>
-        <select className="neu-select" value={values.block} onChange={(event) => update('block', event.target.value)} required>
-          <option value="" disabled>Select block</option>
-          {['A', 'B', 'C', 'D', 'E'].map((block) => <option key={block} value={block}>Block {block}</option>)}
-        </select>
-      </label>
       <label className="field"><span className="field__label">Floor</span>
         <select className="neu-select" value={values.floor} onChange={(event) => update('floor', event.target.value)} required>
           <option value="" disabled>Select floor</option>
-          {[1, 2, 3, 4, 5].map((floor) => <option key={floor} value={floor}>Floor {floor}</option>)}
+          {[0, 1, 2, 3, 4, 5].map((floor) => <option key={floor} value={floor}>{floor === 0 ? 'Basement' : `Floor ${floor}`}</option>)}
         </select>
       </label>
+      <NeuInput label="Room" value={values.room} onInvalid={(event) => event.currentTarget.setCustomValidity('Enter your room like B2 or B16')} onChange={(event) => { const value = event.target.value.toUpperCase(); event.currentTarget.setCustomValidity(/^[A-Z][0-9]{1,3}$/.test(value) ? '' : 'Enter your room like B2 or B16'); update('room', value) }} autoComplete="off" required maxLength={4} placeholder="e.g. B16" pattern="[A-Z][0-9]{1,3}" hint="Enter your room like B2 or B16" />
     </div>
-    <NeuInput label="Room number" value={values.room} onChange={(event) => update('room', event.target.value)} autoComplete="off" required maxLength={30} placeholder="e.g. 312" />
     <NeuInput label="Phone number (optional)" type="tel" value={values.phone} onChange={(event) => update('phone', event.target.value)} autoComplete="tel" maxLength={30} placeholder="Add a number if you want" hint="Private. Only shared after a borrow request is accepted." />
     {error && <p className="auth-error" role="alert">{error}</p>}
     <NeuButton variant="primary" type="submit" disabled={busy}>{busy ? 'Saving…' : submitLabel}</NeuButton>

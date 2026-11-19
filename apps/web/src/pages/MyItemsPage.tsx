@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { apiRequest } from '../api/client'
 import { NeuBadge, NeuButton, NeuCard, NeuEmptyState, NeuSkeleton } from '../components/ui'
 import type { ItemRecord } from '../items/types'
+import ItemVisual from '../components/ItemVisual'
 
 export default function MyItemsPage() {
   const queryClient = useQueryClient()
@@ -24,9 +25,8 @@ function MyItemCard({ item, onChanged }: { item: ItemRecord; onChanged: () => vo
     mutationFn: (status: ItemRecord['status']) => apiRequest<{ item: ItemRecord }>(`/api/items/${item.id}`, { method: 'PATCH', body: { status } }),
     onSuccess: onChanged,
   })
-  const photo = item.photos[0]
   return <NeuCard as="article" className="my-item-card">
-    <Link className="my-item-card__photo" to={`/items/${item.id}`}>{photo ? <img src={photo.thumbnailUrl} alt="" loading="lazy" /> : <span aria-hidden="true">LL</span>}</Link>
+    <Link className="my-item-card__photo" to={`/items/${item.id}`}><ItemVisual item={item} size="compact" /></Link>
     <div className="my-item-card__body"><div className="my-item-card__heading"><NeuBadge tone={item.status === 'available' ? 'success' : item.status === 'hidden' ? 'neutral' : 'warning'}>{item.status === 'available' ? 'Available' : item.status === 'hidden' ? 'Hidden' : 'Lent'}</NeuBadge><Link to={`/items/${item.id}`} aria-label={`View ${item.title}`}><ArrowUpRight size={16} /></Link></div>
       <h2><Link to={`/items/${item.id}`}>{item.title}</Link></h2><p>{item.category} · {item.condition}</p>
       <label className="field my-item-status"><span className="field__label">Listing status</span><select className="neu-select" value={item.status} onChange={(event) => mutation.mutate(event.target.value as ItemRecord['status'])} disabled={mutation.isPending}>

@@ -7,9 +7,8 @@ import { toCurrentUser } from '../services/google-auth.service.js'
 
 const updateProfileSchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
-  block: z.enum(['A', 'B', 'C', 'D', 'E']).optional(),
-  floor: z.number().int().min(1).max(5).optional(),
-  room: z.string().trim().min(1).max(30).optional(),
+  floor: z.number().int().min(0).max(5).optional(),
+  room: z.string().trim().toUpperCase().regex(/^[A-Z][0-9]{1,3}$/, 'Enter your room like B2 or B16').optional(),
   phone: z.string().trim().max(30).nullable().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, 'Provide at least one profile field.')
 
@@ -23,11 +22,10 @@ export const patchMe: RequestHandler = asyncHandler(async (req, res) => {
   const currentUser = req.currentUser
   if (!currentUser) throw new HttpError(401, 'Sign in to continue.')
 
-  const data: { name?: string; block?: string; floor?: number; room?: string; phone?: string | null } = {}
+  const data: { name?: string; floor?: number; room?: string; phone?: string | null } = {}
   if (patch.name !== undefined) data.name = patch.name
-  if (patch.block !== undefined) data.block = patch.block
   if (patch.floor !== undefined) data.floor = patch.floor
-  if (patch.room !== undefined) data.room = patch.room
+  if (patch.room !== undefined) data.room = patch.room.trim().toUpperCase()
   if (patch.phone !== undefined) data.phone = patch.phone || null
 
   const user = await prisma.user.update({ where: { id: currentUser.id }, data })

@@ -2,8 +2,8 @@ export type ItemPhoto = { path: string; url: string; thumbnailUrl: string }
 export type ItemOwner = {
   id: string
   name: string
-  block: string | null
   floor: number | null
+  room: string | null
   avatarUrl: string | null
   trustScore: number
 }
