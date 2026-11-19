@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ItemStatus {
+  available
+  lent
+  hidden
+}
+
+enum RequestStatus {
+  pending
+  accepted
+  declined
+  returned
+  cancelled
+}
+
+enum WantedStatus {
+  open
+  fulfilled
+}
+
+model Community {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  users       User[]
+  items       Item[]
+  wantedPosts WantedPost[]
+
+  @@map("communities")
+}
+
+model User {
+  id          String           @id @default(uuid()) @db.Uuid
+  communityId String           @map("community_id") @db.Uuid
+  name        String
+  email       String           @unique
+  block       String           @db.Char(1)
+  floor       Int
+  room        String
+  phone       String?
+  trustScore  Int              @default(0) @map("trust_score")
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  community   Community        @relation(fields: [communityId], references: [id], onDelete: Restrict)
+  items       Item[]
+  borrowed    BorrowRequest[]  @relation("BorrowerRequests")
+  owned       BorrowRequest[]  @relation("OwnerRequests")
+  wantedPosts WantedPost[]
+  responses   WantedResponse[]
+  ratingsFrom Rating[]         @relation("RatingFrom")
+  ratingsTo   Rating[]         @relation("RatingTo")
+
+  @@index([communityId])
+  @@map("users")
+}
+
+model Item {
+  id          String          @id @default(uuid()) @db.Uuid
+  communityId String          @map("community_id") @db.Uuid
+  ownerId     String          @map("owner_id") @db.Uuid
+  title       String
+  description String
+  category    String
+  condition   String
+  photos      String[]        @default([])
+  status      ItemStatus      @default(available)
+  maxLendDays Int             @map("max_lend_days")
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  community   Community       @relation(fields: [communityId], references: [id], onDelete: Restrict)
+  owner       User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  requests    BorrowRequest[]
+
+  @@index([status])
+  @@index([communityId])
+  @@index([ownerId])
+  // PostgreSQL GIN full-text index is created in the SQL migration.
+  @@map("items")
+}
+
+model BorrowRequest {
+  id         String        @id @default(uuid()) @db.Uuid
+  itemId     String        @map("item_id") @db.Uuid
+  borrowerId String        @map("borrower_id") @db.Uuid
+  ownerId    String        @map("owner_id") @db.Uuid
+  fromDate   DateTime      @map("from_date") @db.Date
+  toDate     DateTime      @map("to_date") @db.Date
+  note       String
+  status     RequestStatus @default(pending)
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  item       Item          @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  borrower  User          @relation("BorrowerRequests", fields: [borrowerId], references: [id], onDelete: Cascade)
+  owner     User          @relation("OwnerRequests", fields: [ownerId], references: [id], onDelete: Cascade)
+  ratings   Rating[]
+
+  @@index([status])
+  @@index([ownerId])
+  @@index([borrowerId])
+  @@index([itemId])
+  @@map("requests")
+}
+
+model WantedPost {
+  id          String           @id @default(uuid()) @db.Uuid
+  communityId String           @map("community_id") @db.Uuid
+  authorId    String           @map("author_id") @db.Uuid
+  title       String
+  note        String
+  neededBy    DateTime         @map("needed_by") @db.Date
+  status      WantedStatus     @default(open)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  community   Community        @relation(fields: [communityId], references: [id], onDelete: Restrict)
+  author      User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  responses   WantedResponse[]
+
+  @@index([communityId, status])
+  @@map("wanted_posts")
+}
+
+model WantedResponse {
+  id           String     @id @default(uuid()) @db.Uuid
+  wantedPostId String     @map("wanted_post_id") @db.Uuid
+  responderId  String     @map("responder_id") @db.Uuid
+  message      String
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  wantedPost   WantedPost @relation(fields: [wantedPostId], references: [id], onDelete: Cascade)
+  responder   User       @relation(fields: [responderId], references: [id], onDelete: Cascade)
+
+  @@index([wantedPostId])
+  @@map("wanted_responses")
+}
+
+model Rating {
+  id         String        @id @default(uuid()) @db.Uuid
+  requestId  String        @map("request_id") @db.Uuid
+  fromUserId String        @map("from_user_id") @db.Uuid
+  toUserId   String        @map("to_user_id") @db.Uuid
+  thumbsUp   Boolean       @map("thumbs_up")
+  comment    String?
+  request    BorrowRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  fromUser   User          @relation("RatingFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser     User          @relation("RatingTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, fromUserId])
+  @@index([toUserId])
+  @@map("ratings")
+}

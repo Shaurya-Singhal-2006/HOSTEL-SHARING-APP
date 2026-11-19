@@ -1,0 +1,16 @@
+{
+  "name": "lendloop",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "concurrently -n web,api -c cyan,magenta \"npm run dev -w @lendloop/web\" \"npm run dev -w @lendloop/api\"",
+    "dev:web": "npm run dev -w @lendloop/web",
+    "dev:api": "npm run dev -w @lendloop/api",
+    "db:generate": "npm run db:generate -w @lendloop/api",
+    "db:migrate": "npm run db:migrate -w @lendloop/api",
+    "db:seed": "npm run db:seed -w @lendloop/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
