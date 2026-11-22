@@ -5,10 +5,13 @@ import { apiRequest } from '../api/client'
 import { NeuBadge, NeuButton, NeuCard, NeuEmptyState, NeuSkeleton } from '../components/ui'
 import type { ItemRecord } from '../items/types'
 import ItemVisual from '../components/ItemVisual'
+import { useCommunity } from '../auth/CommunityProvider'
 
 export default function MyItemsPage() {
   const queryClient = useQueryClient()
-  const itemsQuery = useQuery({ queryKey: ['items', 'mine'], queryFn: async () => (await apiRequest<{ items: ItemRecord[] }>('/api/items/mine')).items })
+  const { active } = useCommunity()
+  const communityId = active?.id ?? null
+  const itemsQuery = useQuery({ queryKey: ['items', 'mine', communityId], enabled: Boolean(communityId), queryFn: async () => (await apiRequest<{ items: ItemRecord[] }>('/api/items/mine')).items })
   const items = itemsQuery.data ?? []
 
   return <div className="my-items-page">

@@ -7,6 +7,7 @@ import { NeuBadge, NeuButton, NeuCard, NeuChip, NeuEmptyState, NeuModal, NeuSkel
 import { formatLocation } from '../items/location'
 import ReputationButton from '../components/ReputationButton'
 import { Link } from 'react-router-dom'
+import { useCommunity } from '../auth/CommunityProvider'
 
 type RequestData = {
   id: string; item: { id: string; title: string; category: string; photos: Array<{ path: string; url: string; thumbnailUrl: string }> }
@@ -32,7 +33,9 @@ function statusLabel(request:RequestData) { return request.status==='pending'?(r
 export default function RequestsPage() {
   const [role, setRole] = useState<Role>('borrower')
   const [filter, setFilter] = useState<(typeof filters)[number]>('All')
-  const query = useQuery({ queryKey: ['requests', role], queryFn: async () => (await apiRequest<{ requests: RequestData[] }>(`/api/requests/mine?role=${role}`)).requests })
+  const { active } = useCommunity()
+  const communityId = active?.id ?? null
+  const query = useQuery({ queryKey: ['requests', role, communityId], enabled: Boolean(communityId), queryFn: async () => (await apiRequest<{ requests: RequestData[] }>(`/api/requests/mine?role=${role}`)).requests })
   const requests = (query.data ?? []).filter((request) => filter === 'All' || (filter === 'Not going ahead' ? ['declined', 'cancelled'].includes(request.status) : request.status === (filter==='Waiting'?'pending':filter.toLowerCase())))
   return <div className="requests-page">
     <div className="page-heading"><h1>Borrowing</h1><p>See what’s waiting, accepted, or ready to come home.</p></div>

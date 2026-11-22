@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthProvider'
+import { CommunityProvider } from './auth/CommunityProvider'
 import ProtectedRoute from './components/ProtectedRoute'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import DesignPage from './pages/DesignPage'
@@ -30,10 +31,13 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
+          <CommunityProvider><Routes>
             <Route path="/design" element={<DesignPage />} />
             <Route path="/login" element={<ProtectedRoute page="login"><LoginPage /></ProtectedRoute>} />
+            <Route path="/start" element={<ProtectedRoute page="start"><JoinPage /></ProtectedRoute>} />
             <Route path="/join" element={<ProtectedRoute page="join"><JoinPage /></ProtectedRoute>} />
+            <Route path="/join/:code" element={<ProtectedRoute page="join"><JoinPage /></ProtectedRoute>} />
+            <Route path="/waiting" element={<ProtectedRoute page="waiting"><JoinPage /></ProtectedRoute>} />
             <Route path="/onboarding" element={<ProtectedRoute page="onboarding"><OnboardingPage /></ProtectedRoute>} />
             <Route path="/tour" element={<ProtectedRoute page="app"><TourPage /></ProtectedRoute>} />
             <Route path="/help" element={<ProtectedRoute page="app"><AppShell><HelpPage /></AppShell></ProtectedRoute>} />
@@ -48,7 +52,7 @@ function App() {
             <Route path="/items/:id/edit" element={<ProtectedRoute page="app"><AppShell><ItemFormPage /></AppShell></ProtectedRoute>} />
             <Route path="/items/:id" element={<ProtectedRoute page="app"><AppShell><ItemDetailPage /></AppShell></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          </Routes></CommunityProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

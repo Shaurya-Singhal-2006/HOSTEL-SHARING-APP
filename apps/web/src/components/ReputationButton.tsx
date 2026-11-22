@@ -3,11 +3,13 @@ import { useQuery } from '@tanstack/react-query'
 import { ThumbsDown, ThumbsUp } from 'lucide-react'
 import { apiRequest } from '../api/client'
 import { NeuBadge, NeuModal, NeuSkeleton } from './ui'
+import { useCommunity } from '../auth/CommunityProvider'
 
 type Reputation = { name:string;floor:number|null;thumbsUp:number;thumbsDown:number;trustScore:number;totalCompletedLends:number;totalBorrows:number;badges:string[];recentComments:Array<{comment:string|null;createdAt:string;thumbsUp:boolean;commenter:{name:string;floor:number|null;room:string|null}}> }
 export default function ReputationButton({userId,name}:{userId:string;name:string}){
   const [open,setOpen]=useState(false)
-  const query=useQuery({queryKey:['reputation',userId],queryFn:async()=> (await apiRequest<{reputation:Reputation}>(`/api/ratings/users/${userId}/reputation`)).reputation})
+  const {active}=useCommunity();const communityId=active?.id??null
+  const query=useQuery({queryKey:['reputation',userId,communityId],enabled:Boolean(communityId),queryFn:async()=> (await apiRequest<{reputation:Reputation}>(`/api/ratings/users/${userId}/reputation`)).reputation})
   return <><span className="reputation-inline"><button type="button" className="reputation-link" onClick={e=>{e.stopPropagation();setOpen(true)}}>{name}</button>{query.data&&<><span className="reputation-inline__score">Trust {query.data.trustScore}</span>{query.data.badges.map(b=><NeuBadge key={b} tone={b==='Reliable'||b==='Top lender'?'success':'neutral'}>{b}</NeuBadge>)}</>}</span><NeuModal open={open} onClose={()=>setOpen(false)} title={`${name} · reputation`}>
     {query.isPending&&<div className="reputation-modal"><NeuSkeleton/><NeuSkeleton/></div>}
     {query.isError&&<p className="form-error" role="alert">Reputation could not load. Please try again.</p>}

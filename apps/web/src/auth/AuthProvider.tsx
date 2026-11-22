@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { apiRequest } from '../api/client'
+import { apiRequest, setRequestCommunityId } from '../api/client'
 
 export const ME_QUERY_KEY = ['me'] as const
 
@@ -63,7 +63,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     logout: async () => {
       await apiRequest<{ ok: true }>('/api/auth/logout', { method: 'POST' })
+      setRequestCommunityId(null)
+      try { window.localStorage.removeItem('lendloop.activeCommunityId') } catch { /* Ignore disabled storage. */ }
       queryClient.setQueryData(ME_QUERY_KEY, null)
+      queryClient.removeQueries({ predicate: (entry) => entry.queryKey[0] !== 'me' })
     },
   }), [meQuery.data, meQuery.error, meQuery.isPending, meQuery.refetch, queryClient])
 
@@ -82,7 +85,5 @@ export function profileIsComplete(user: CurrentUser | null): boolean {
 
 export function routeForUser(user: CurrentUser | null): string {
   if (!user) return '/login'
-  if (!user.joinedHostel) return '/join'
-  if (!profileIsComplete(user)) return '/onboarding'
-  return user.onboardingTourCompleted ? '/' : '/tour'
+  return '/start'
 }

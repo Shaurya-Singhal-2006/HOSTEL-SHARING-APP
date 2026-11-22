@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ImagePlus, X } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { apiUpload, ApiError, apiRequest } from '../api/client'
+import { apiUpload, ApiError, apiRequest, communityAssetUrl } from '../api/client'
 import { NeuButton, NeuCard, NeuInput, NeuSkeleton } from '../components/ui'
 import ItemVisual from '../components/ItemVisual'
 import type { ItemRecord } from '../items/types'
 import { ITEM_CATEGORIES } from '../items/types'
+import { useCommunity } from '../auth/CommunityProvider'
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -16,10 +17,11 @@ export default function ItemFormPage() {
   const isEdit = Boolean(id)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { active } = useCommunity()
   const itemQuery = useQuery({
-    queryKey: ['item', id],
+    queryKey: ['item', id, active?.id ?? null],
     queryFn: async () => (await apiRequest<{ item: ItemRecord }>(`/api/items/${id}`)).item,
-    enabled: Boolean(id),
+    enabled: Boolean(id && active?.id),
   })
   const item = itemQuery.data
   const [title, setTitle] = useState('')
@@ -131,7 +133,7 @@ export default function ItemFormPage() {
           <div className="photo-field__heading"><div><h2>Add a photo (optional)</h2><p>JPEG, PNG or WebP · up to 5 MB each · up to 3 photos</p></div><span>{photoCount}/3</span></div>
           <div className="item-live-preview"><span>Live preview</span><ItemVisual item={{ title, category, photos: [] }} size="compact" /><strong>{title || 'Your item'}</strong></div>
           <div className="photo-previews">
-            {keptPhotos.map((photo) => <div className="photo-preview" key={photo.path}><img src={photo.thumbnailUrl} alt="Current item" /><button type="button" className="photo-preview__remove" aria-label="Remove existing photo" onClick={() => toggleExistingPhoto(photo.path)}><X size={15} /></button></div>)}
+            {keptPhotos.map((photo) => <div className="photo-preview" key={photo.path}><img src={communityAssetUrl(photo.thumbnailUrl)} alt="Current item" /><button type="button" className="photo-preview__remove" aria-label="Remove existing photo" onClick={() => toggleExistingPhoto(photo.path)}><X size={15} /></button></div>)}
             {newPhotoPreviews.map((src, index) => <div className="photo-preview" key={`${newPhotos[index]?.name}-${index}`}><img src={src} alt={`New photo ${index + 1} preview`} /><button type="button" className="photo-preview__remove" aria-label={`Remove selected photo ${index + 1}`} onClick={() => removeNewPhoto(index)}><X size={15} /></button></div>)}
             {photoCount < 3 && <label className="photo-picker"><ImagePlus size={20} /><span>Add photo</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => { addPhotos(event.target.files); event.currentTarget.value = '' }} /></label>}
           </div>

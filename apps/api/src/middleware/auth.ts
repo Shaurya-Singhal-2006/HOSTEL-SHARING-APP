@@ -36,7 +36,10 @@ export const requireJoined: RequestHandler = (req, _res, next) => {
 export const requireCommunity: RequestHandler = asyncHandler(async (req, _res, next) => {
   const user = req.currentUser
   if (!user) throw new HttpError(401, 'Sign in to continue.')
-  const id = req.get('X-Community-Id')?.trim()
+  // Native <img> requests cannot attach headers; item-photo GETs may carry the same
+  // community context as a query parameter while still passing this membership check.
+  const photoCommunityId = req.baseUrl === '/uploads' && req.method === 'GET' && typeof req.query.communityId === 'string' ? req.query.communityId : undefined
+  const id = (req.get('X-Community-Id') ?? photoCommunityId)?.trim()
   if (!id) throw new HttpError(400, 'Select a community with the X-Community-Id header.')
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) throw new HttpError(404, 'Community not found.')
   const member = await prisma.communityMember.findFirst({

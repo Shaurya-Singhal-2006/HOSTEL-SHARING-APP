@@ -4,13 +4,16 @@ import { Bell, CheckCircle2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { apiRequest } from '../api/client'
 import ItemVisual from './ItemVisual'
+import { useCommunity } from '../auth/CommunityProvider'
 
 type Notice = { id: string; requestId: string | null; wantedPostId: string | null; type: string; message: string; read: boolean; createdAt: string; item: { id: string; title: string; category: string; photos: Array<{ path: string; url: string; thumbnailUrl: string }> } | null }
 
 export default function NotificationBell({ compact = false }: { compact?: boolean }) {
   const [open, setOpen] = useState(false)
   const client = useQueryClient()
-  const query = useQuery({ queryKey: ['notifications'], queryFn: () => apiRequest<{ notifications: Notice[]; unreadCount: number; wantedUnreadCount: number }>('/api/notifications'), refetchInterval: 30_000 })
+  const { active } = useCommunity()
+  const communityId = active?.id ?? null
+  const query = useQuery({ queryKey: ['notifications', communityId], enabled: Boolean(communityId), queryFn: () => apiRequest<{ notifications: Notice[]; unreadCount: number; wantedUnreadCount: number }>('/api/notifications'), refetchInterval: 30_000 })
   const readAll = useMutation({ mutationFn: () => apiRequest('/api/notifications/read-all', { method: 'PATCH' }), onSuccess: () => client.invalidateQueries({ queryKey: ['notifications'] }) })
   const unread = query.data?.unreadCount ?? 0
   return <div className={`notification-bell ${compact ? 'notification-bell--compact' : ''}`}>

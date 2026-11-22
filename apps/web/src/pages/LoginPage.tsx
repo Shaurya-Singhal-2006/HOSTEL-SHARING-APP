@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { API_BASE } from '../api/client'
 import AuthFrame from '../components/AuthFrame'
 import { NeuButton } from '../components/ui'
@@ -13,6 +13,7 @@ function errorMessage(code: string | null): string | null {
 
 export default function LoginPage() {
   const [searchParams] = useSearchParams()
+  const location = useLocation()
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(errorMessage(searchParams.get('error')))
 
@@ -25,6 +26,8 @@ export default function LoginPage() {
       onClick={() => {
         setError(null)
         setStarting(true)
+        const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
+        if (from?.startsWith('/join/')) { try { window.sessionStorage.setItem('lendloop.afterLogin', from) } catch { /* Optional convenience only. */ } }
         window.location.assign(`${API_BASE}/api/auth/google`)
       }}
     >

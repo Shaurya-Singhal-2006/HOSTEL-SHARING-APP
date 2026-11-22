@@ -7,18 +7,20 @@ import { NeuAvatar, NeuBadge, NeuButton, NeuCard, NeuInput, NeuModal, NeuSkeleto
 import type { ItemRecord } from '../items/types'
 import ItemVisual from '../components/ItemVisual'
 import { formatLocation } from '../items/location'
+import { useCommunity } from '../auth/CommunityProvider'
 
 export default function ItemDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { active } = useCommunity()
   const [photoIndex, setPhotoIndex] = useState(0)
   const [deleteError, setDeleteError] = useState('')
   const [requestOpen, setRequestOpen] = useState(false)
   const itemQuery = useQuery({
-    queryKey: ['item', id],
+    queryKey: ['item', id, active?.id ?? null],
     queryFn: async () => (await apiRequest<{ item: ItemRecord }>(`/api/items/${id}`)).item,
-    enabled: Boolean(id),
+    enabled: Boolean(id && active?.id),
   })
   const deleteMutation = useMutation({
     mutationFn: () => apiRequest<null>(`/api/items/${id}`, { method: 'DELETE' }),

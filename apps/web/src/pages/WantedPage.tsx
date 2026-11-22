@@ -8,6 +8,7 @@ import { NeuBadge, NeuButton, NeuCard, NeuChip, NeuEmptyState, NeuInput, NeuModa
 import { formatLocation } from '../items/location'
 import { ITEM_CATEGORIES } from '../items/types'
 import ReputationButton from '../components/ReputationButton'
+import { useCommunity } from '../auth/CommunityProvider'
 
 type Author = { id: string; name: string; floor: number | null; room: string | null; trustScore: number }
 type WantedPost = { id: string; title: string; category: string; note: string; neededBy: string | null; status: 'open'|'fulfilled'|'closed'; isExpired: boolean; createdAt: string; author: Author; responseCount: number; hasResponded: boolean; isAuthor: boolean }
@@ -23,6 +24,8 @@ export default function WantedPage() {
 }
 
 function WantedFeed() {
+  const { active } = useCommunity()
+  const communityId = active?.id ?? null
   const client = useQueryClient()
   const [tab, setTab] = useState<'board'|'mine'>('board')
   const [category, setCategory] = useState('All')
@@ -32,7 +35,7 @@ function WantedFeed() {
   const [allPosts, setAllPosts] = useState<WantedPost[]>([])
   const [createOpen, setCreateOpen] = useState(false)
   const queryString = new URLSearchParams({ page: String(page), ...(category !== 'All' ? { category } : {}), ...(floor ? { floor } : {}), ...(search ? { search } : {}), ...(tab === 'mine' ? { mine: 'true' } : {}) }).toString()
-  const query = useQuery({ queryKey: ['wanted', tab, category, floor, search, page], queryFn: () => apiRequest<Feed>(`/api/wanted?${queryString}`) })
+  const query = useQuery({ queryKey: ['wanted', tab, category, floor, search, page, communityId], enabled: Boolean(communityId), queryFn: () => apiRequest<Feed>(`/api/wanted?${queryString}`) })
   useEffect(()=>{if(query.data)setAllPosts(current=>page===1?query.data!.posts:[...current,...query.data!.posts])},[query.data,page])
   const posts = allPosts
   return <div className="wanted-page">
@@ -56,7 +59,8 @@ function WantedCard({post}:{post:WantedPost}) {
 function CreateWantedModal({open,onClose,onCreated}:{open:boolean;onClose:()=>void;onCreated:()=>void}) {
   const [title,setTitle]=useState('');const [category,setCategory]=useState('Other');const [note,setNote]=useState('');const [neededBy,setNeededBy]=useState('')
   const navigate=useNavigate();const client=useQueryClient()
-  const suggestion=useQuery({queryKey:['wanted-suggestions',title],enabled:title.trim().length>=2,queryFn:()=>apiRequest<{items:Array<{id:string;title:string;category:string;owner:{floor:number|null;room:string|null}}> }>(`/api/items?available=true&page=1&search=${encodeURIComponent(title.trim())}`)})
+  const {active}=useCommunity();const communityId=active?.id??null
+  const suggestion=useQuery({queryKey:['wanted-suggestions',title,communityId],enabled:title.trim().length>=2&&Boolean(communityId),queryFn:()=>apiRequest<{items:Array<{id:string;title:string;category:string;owner:{floor:number|null;room:string|null}}> }>(`/api/items?available=true&page=1&search=${encodeURIComponent(title.trim())}`)})
   const create=useMutation({mutationFn:()=>apiRequest<{post:WantedPost}>('/api/wanted',{method:'POST',body:{title,category,note:note||undefined,neededBy:neededBy||undefined}}),onSuccess:async({post})=>{onCreated();onClose();setTitle('');setNote('');await client.invalidateQueries({queryKey:['wanted']});navigate(`/wanted/${post.id}`)}})
   return <NeuModal open={open} onClose={onClose} title="Post a request"><form className="wanted-form" onSubmit={e=>{e.preventDefault();create.mutate()}}>
     <NeuInput label="What do you need?" value={title} onChange={e=>setTitle(e.target.value)} maxLength={80} required placeholder="e.g. A drill for a shelf" hint="A short name helps neighbours spot it."/>
@@ -70,7 +74,8 @@ function CreateWantedModal({open,onClose,onCreated}:{open:boolean;onClose:()=>vo
 
 function WantedDetail({id}:{id:string}) {
   const client=useQueryClient();const [message,setMessage]=useState('');const [selected,setSelected]=useState('');const navigate=useNavigate()
-  const query=useQuery({queryKey:['wanted-detail',id],queryFn:async()=> (await apiRequest<{post:Detail}>(`/api/wanted/${id}`)).post})
+  const {active}=useCommunity();const communityId=active?.id??null
+  const query=useQuery({queryKey:['wanted-detail',id,communityId],enabled:Boolean(communityId),queryFn:async()=> (await apiRequest<{post:Detail}>(`/api/wanted/${id}`)).post})
   const refresh=async()=>{await Promise.all([client.invalidateQueries({queryKey:['wanted-detail',id]}),client.invalidateQueries({queryKey:['wanted']}),client.invalidateQueries({queryKey:['notifications']})])}
   const respond=useMutation({mutationFn:()=>apiRequest(`/api/wanted/${id}/respond`,{method:'POST',body:{message}}),onSuccess:refresh})
   const action=useMutation({mutationFn:({name,body}:{name:string;body?:unknown})=>apiRequest(`/api/wanted/${id}/${name}`,{method:name==='delete'?'DELETE':'PATCH',...(body===undefined?{}:{body})}),onSuccess:async()=>{await refresh();if(action.variables?.name==='delete')navigate('/wanted')}})

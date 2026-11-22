@@ -9,8 +9,11 @@ import type { ItemListResponse } from '../items/types'
 import { ITEM_CATEGORIES } from '../items/types'
 import { useQuery } from '@tanstack/react-query'
 import type { ItemRecord } from '../items/types'
+import { useCommunity } from '../auth/CommunityProvider'
 
 export default function HomePage() {
+  const { active } = useCommunity()
+  const communityId = active?.id ?? null
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [category, setCategory] = useState('All items')
@@ -24,7 +27,8 @@ export default function HomePage() {
 
   const filters = useMemo(() => ({ debouncedSearch, category, available, floor }), [debouncedSearch, category, available, floor])
   const itemsQuery = useInfiniteQuery({
-    queryKey: ['items', 'browse', filters],
+    queryKey: ['items', 'browse', filters, communityId],
+    enabled: Boolean(communityId),
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams({ page: String(pageParam) })
@@ -37,7 +41,7 @@ export default function HomePage() {
     getNextPageParam: (lastPage) => lastPage.pagination.hasMore ? lastPage.pagination.page + 1 : undefined,
   })
   const items = itemsQuery.data?.pages.flatMap((page) => page.items) ?? []
-  const popularQuery = useQuery({ queryKey: ['items', 'popular'], queryFn: () => apiRequest<{items:Array<ItemRecord & {requestCount:number}>}>('/api/items/popular') })
+  const popularQuery = useQuery({ queryKey: ['items', 'popular', communityId], enabled: Boolean(communityId), queryFn: () => apiRequest<{items:Array<ItemRecord & {requestCount:number}>}>('/api/items/popular') })
   const hasBrowseFilter=Boolean(debouncedSearch||category!=='All items'||available||floor)
 
   return <>
