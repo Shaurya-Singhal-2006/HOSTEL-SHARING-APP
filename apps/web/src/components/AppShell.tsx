@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { CircleHelp, ClipboardList, HeartHandshake, Home, Package, Plus, UserRound } from 'lucide-react'
-import { Link, NavLink, useLocation } from 'react-router-dom'
+import { CircleHelp, ClipboardList, HeartHandshake, Home, PackagePlus, UserRound } from 'lucide-react'
+import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { NeuAvatar } from './ui'
 import { formatCommunityLocation } from '../items/location'
@@ -12,7 +12,7 @@ import { useCommunity } from '../auth/CommunityProvider'
 const links = [
   { label: 'Home', to: '/', icon: Home, end: true },
   { label: 'Wanted', to: '/wanted', icon: HeartHandshake },
-  { label: 'Add item', to: '/items/new', icon: Plus },
+  { label: 'Share', to: '/items/new', icon: PackagePlus },
   { label: 'Requests', to: '/requests', icon: ClipboardList },
   { label: 'Profile', to: '/profile', icon: UserRound },
 ]
@@ -32,7 +32,6 @@ function Navigation({ mobile = false }: { mobile?: boolean }) {
 export default function AppShell({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const { active, communities, role, setActive } = useCommunity()
-  const location = useLocation()
   if (!user) return null
   const name = user.name.trim().split(/\s+/)[0] || 'there'
   return <div className="app-shell">
@@ -41,13 +40,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <p className="sidebar-copy">The little things we share<br />make this place home.</p>
       <CommunitySwitcher activeId={active?.id ?? ''} communities={communities.filter((item) => item.status === 'active')} role={role} onChange={setActive} />
       <Navigation />
-      <Link to="/my-items" className={`sidebar-secondary ${location.pathname === '/my-items' ? 'is-active' : ''}`}><Package size={18} />My items</Link>
-      <Link to="/help" title="Help and answers" className={`sidebar-secondary ${location.pathname === '/help' ? 'is-active' : ''}`}><CircleHelp size={18} />Help and answers</Link>
+      <div className="sidebar-create-actions" aria-label="Create something"><Link to="/items/new"><PackagePlus size={18}/>Share an item</Link><Link to="/wanted" state={{ openCreate: true }}><HeartHandshake size={18}/>Ask for something</Link></div>
       <div className="sidebar-notifications"><NotificationBell compact /></div>
       <Link className="sidebar-person" to="/profile"><NeuAvatar name={user.name} size="sm" src={user.avatarUrl} /><span><strong>{user.name}</strong><small>{formatCommunityLocation(active, active) || 'Your profile'}</small></span></Link>
     </aside>
     <main className="app-main">
-      <header className="app-topbar"><CommunitySwitcher activeId={active?.id ?? ''} communities={communities.filter((item) => item.status === 'active')} role={role} onChange={setActive} compact /><div className="app-topbar__profile"><NotificationBell /><span>Welcome, {name}</span><NeuAvatar name={user.name} size="sm" src={user.avatarUrl} /></div></header>
+      <header className="app-topbar"><CommunitySwitcher activeId={active?.id ?? ''} communities={communities.filter((item) => item.status === 'active')} role={role} onChange={setActive} compact /><div className="app-topbar__profile"><Link className="topbar-help" to="/help" aria-label="Help and answers" title="Help and answers"><CircleHelp size={19}/></Link><NotificationBell /><span>Welcome, {name}</span><NeuAvatar name={user.name} size="sm" src={user.avatarUrl} /></div></header>
       <div className="app-content">{children}</div>
     </main>
     <div className="app-mobile-nav"><Navigation mobile /></div>

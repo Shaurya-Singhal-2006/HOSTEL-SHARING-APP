@@ -13,14 +13,14 @@ const conditionSchema = z.enum(['New', 'Good', 'Used'])
 const textSchema = (minimum: number, maximum: number) => z.string().transform(sanitizeText).pipe(z.string().min(minimum).max(maximum))
 const createSchema = z.object({
   title: textSchema(2, 100),
-  description: textSchema(5, 2000),
+  description: textSchema(0, 2000).default(''),
   category: categorySchema,
-  condition: conditionSchema,
+  condition: conditionSchema.default('Good'),
   max_lend_days: z.coerce.number().int().min(1).max(365),
 }).strict()
 const patchSchema = z.object({
   title: textSchema(2, 100).optional(),
-  description: textSchema(5, 2000).optional(),
+  description: textSchema(0, 2000).optional(),
   category: categorySchema.optional(),
   condition: conditionSchema.optional(),
   max_lend_days: z.coerce.number().int().min(1).max(365).optional(),

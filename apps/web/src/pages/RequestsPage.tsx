@@ -16,15 +16,15 @@ type RequestData = {
   other: { id: string; name: string; floor: number | null; room: string | null; phone?: string | null; trustScore?: number }; isBorrower: boolean; myRated:boolean; otherRated:boolean
 }
 type Role = 'borrower' | 'owner'
-const filters = ['All', 'Waiting', 'Accepted', 'Returned', 'Not going ahead'] as const
+const filters = ['All', 'Waiting for reply', 'Accepted', 'Returned', 'Not going ahead'] as const
 const flowSteps = [{label:'Requested',icon:CheckCircle2},{label:'Accepted',icon:CheckCircle2},{label:'Picked up',icon:Package},{label:'Returned',icon:RotateCcw}]
 
 function requestMessage(request:RequestData) {
-  if(request.status==='pending')return request.isBorrower?`Waiting for ${request.other.name} to say yes.`:'Waiting for you to decide on this request.'
-  if(request.status==='accepted')return `Accepted. Agree on pickup, then bring it back by ${new Date(`${request.toDate}T12:00:00`).toLocaleDateString(undefined,{day:'numeric',month:'short'})}.`
-  if(request.status==='returned')return 'Returned. Thanks for sharing with your neighbour.'
-  if(request.status==='declined')return 'This request did not go ahead.'
-  if(request.status==='cancelled')return 'This request was cancelled.'
+  if(request.status==='pending')return request.isBorrower?`Waiting for ${request.other.name} to say yes.`:'Please choose Say yes or Say no.'
+  if(request.status==='accepted')return `Agree on pickup together. Please return it by ${shortDate(request.toDate)}.`
+  if(request.status==='returned')return 'This item has been marked as returned. Thanks for sharing.'
+  if(request.status==='declined')return 'This request was declined, so the borrow will not go ahead.'
+  if(request.status==='cancelled')return 'This request was cancelled, so the borrow will not go ahead.'
   return ''
 }
 function shortDate(value:string){return new Date(`${value}T12:00:00`).toLocaleDateString(undefined,{day:'numeric',month:'short'})}
@@ -36,7 +36,7 @@ export default function RequestsPage() {
   const { active } = useCommunity()
   const communityId = active?.id ?? null
   const query = useQuery({ queryKey: ['requests', role, communityId], enabled: Boolean(communityId), queryFn: async () => (await apiRequest<{ requests: RequestData[] }>(`/api/requests/mine?role=${role}`)).requests })
-  const requests = (query.data ?? []).filter((request) => filter === 'All' || (filter === 'Not going ahead' ? ['declined', 'cancelled'].includes(request.status) : request.status === (filter==='Waiting'?'pending':filter.toLowerCase())))
+  const requests = (query.data ?? []).filter((request) => filter === 'All' || (filter === 'Not going ahead' ? ['declined', 'cancelled'].includes(request.status) : request.status === (filter==='Waiting for reply'?'pending':filter.toLowerCase())))
   return <div className="requests-page">
     <div className="page-heading"><h1>Borrowing</h1><p>See what’s waiting, accepted, or ready to come home.</p></div>
     <div className="request-tabs"><NeuChip selected={role === 'borrower'} onClick={() => { setRole('borrower'); setFilter('All') }}>I asked to borrow</NeuChip><NeuChip selected={role === 'owner'} onClick={() => { setRole('owner'); setFilter('All') }}>Requests for my items</NeuChip></div>
@@ -76,12 +76,12 @@ function RequestCard({ request }: { request: RequestData }) {
       {request.status==='returned'&&<div className="rating-panel"><strong>{request.myRated?'Thanks for sharing your feedback':'Rate this exchange'}</strong>{request.myRated?<p>{!request.otherRated?'Your feedback is in. The other person can rate this exchange too.':'Both sides have shared their feedback.'}</p>:<><div className="rating-vote"><NeuButton aria-pressed={rating===true} onClick={()=>setRating(true)} icon={<ThumbsUp size={16}/>}>Thumbs up</NeuButton><NeuButton aria-pressed={rating===false} onClick={()=>setRating(false)} icon={<ThumbsDown size={16}/>}>Thumbs down</NeuButton></div><textarea className="neu-textarea" rows={2} maxLength={150} value={comment} onChange={e=>setComment(e.target.value)} placeholder="Add a short note (optional)"/>{rate.isError&&<p className="form-error" role="alert">{rate.error.message}</p>}<NeuButton variant="primary" disabled={rating===null||rate.isPending} onClick={()=>rate.mutate()}>{rate.isPending?'Saving…':'Submit rating'}</NeuButton></>}</div>}
       {action.isError && <p className="form-error" role="alert">{action.error.message}</p>}
       <div className="request-card__actions">
-        {!request.isBorrower && request.status === 'pending' && <><NeuButton variant="primary" onClick={() => action.mutate({ name: 'accept' })} disabled={action.isPending} icon={<Check size={15} />}>Accept</NeuButton><NeuButton onClick={() => setDeclineOpen(true)} disabled={action.isPending} icon={<X size={15} />}>Decline</NeuButton></>}
-        {!request.isBorrower && request.status === 'accepted' && <NeuButton variant="primary" onClick={() => { if (window.confirm('Has the item been returned?')) action.mutate({ name: 'return' }) }} disabled={action.isPending}>Confirm return</NeuButton>}
-        {request.isBorrower && ['pending', 'accepted'].includes(request.status) && <NeuButton onClick={() => { if (window.confirm('Cancel this borrow request?')) action.mutate({ name: 'cancel' }) }} disabled={action.isPending}>Cancel request</NeuButton>}
+        {!request.isBorrower && request.status === 'pending' && <><NeuButton variant="primary" onClick={() => action.mutate({ name: 'accept' })} disabled={action.isPending} icon={<Check size={15} />}>Say yes</NeuButton><NeuButton onClick={() => setDeclineOpen(true)} disabled={action.isPending} icon={<X size={15} />}>Say no</NeuButton></>}
+        {!request.isBorrower && request.status === 'accepted' && <NeuButton variant="primary" onClick={() => { if (window.confirm('Has the item been returned?')) action.mutate({ name: 'return' }) }} disabled={action.isPending}>Mark as returned</NeuButton>}
+        {request.isBorrower && ['pending', 'accepted'].includes(request.status) && <NeuButton onClick={() => { if (window.confirm('Cancel this borrow request?')) action.mutate({ name: 'cancel' }) }} disabled={action.isPending}>Cancel</NeuButton>}
       </div>
     </div>
-    <NeuModal open={declineOpen} onClose={() => setDeclineOpen(false)} title="Decline request"><form className="request-modal-form" onSubmit={(event) => { event.preventDefault(); action.mutate({ name: 'decline', body: { reason } }) }}><label className="field"><span className="field__label">Reason (optional)</span><textarea className="neu-textarea" maxLength={200} rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></label>{action.isError && <p className="form-error" role="alert">{action.error.message}</p>}<NeuButton variant="primary" type="submit" disabled={action.isPending}>{action.isPending ? 'Declining…' : 'Decline request'}</NeuButton></form></NeuModal>
+    <NeuModal open={declineOpen} onClose={() => setDeclineOpen(false)} title="Say no to this request"><form className="request-modal-form" onSubmit={(event) => { event.preventDefault(); action.mutate({ name: 'decline', body: { reason } }) }}><label className="field"><span className="field__label">Reason (optional)</span><textarea className="neu-textarea" maxLength={200} rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></label>{action.isError && <p className="form-error" role="alert">{action.error.message}</p>}<NeuButton variant="primary" type="submit" disabled={action.isPending}>{action.isPending ? 'Saving…' : 'Say no'}</NeuButton></form></NeuModal>
   </NeuCard>
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Check, Plus, Search } from 'lucide-react'
+import { ArrowLeft, Check, Plus, Search, SlidersHorizontal } from 'lucide-react'
 import { apiRequest } from '../api/client'
 import ItemVisual from '../components/ItemVisual'
 import { NeuBadge, NeuButton, NeuCard, NeuChip, NeuEmptyState, NeuInput, NeuModal, NeuSkeleton } from '../components/ui'
@@ -9,6 +9,7 @@ import { formatLocation } from '../items/location'
 import { ITEM_CATEGORIES } from '../items/types'
 import ReputationButton from '../components/ReputationButton'
 import { useCommunity } from '../auth/CommunityProvider'
+import QuickAddMenu from '../components/QuickAddMenu'
 
 type Author = { id: string; name: string; floor: number | null; room: string | null; trustScore: number }
 type WantedPost = { id: string; title: string; category: string; note: string; neededBy: string | null; status: 'open'|'fulfilled'|'closed'; isExpired: boolean; createdAt: string; author: Author; responseCount: number; hasResponded: boolean; isAuthor: boolean }
@@ -24,8 +25,10 @@ export default function WantedPage() {
 }
 
 function WantedFeed() {
+  const location = useLocation()
   const { active } = useCommunity()
   const communityId = active?.id ?? null
+  const navigate = useNavigate()
   const client = useQueryClient()
   const [tab, setTab] = useState<'board'|'mine'>('board')
   const [category, setCategory] = useState('All')
@@ -34,21 +37,27 @@ function WantedFeed() {
   const [page, setPage] = useState(1)
   const [allPosts, setAllPosts] = useState<WantedPost[]>([])
   const [createOpen, setCreateOpen] = useState(false)
+  useEffect(() => {
+    if (location.state?.openCreate) {
+      setCreateOpen(true)
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [location.key, location.pathname, location.state, navigate])
   const queryString = new URLSearchParams({ page: String(page), ...(category !== 'All' ? { category } : {}), ...(floor ? { floor } : {}), ...(search ? { search } : {}), ...(tab === 'mine' ? { mine: 'true' } : {}) }).toString()
   const query = useQuery({ queryKey: ['wanted', tab, category, floor, search, page, communityId], enabled: Boolean(communityId), queryFn: () => apiRequest<Feed>(`/api/wanted?${queryString}`) })
   useEffect(()=>{if(query.data)setAllPosts(current=>page===1?query.data!.posts:[...current,...query.data!.posts])},[query.data,page])
   const posts = allPosts
   return <div className="wanted-page">
     <div className="page-heading wanted-heading"><div className="wanted-heading__copy"><p className="section-kicker">THE HOSTEL WANTED BOARD</p><h1>Need something?</h1><p>Ask your neighbours. Someone nearby may already have it.</p></div><NeuButton className="wanted-ask" variant="primary" onClick={() => setCreateOpen(true)} icon={<Plus size={16} />}>Ask for something</NeuButton></div>
-    <div className="wanted-controls"><div className="wanted-search"><Search size={18}/><input aria-label="Search wanted posts" value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}} placeholder="Search the board" /></div><label className="wanted-floor"><span>Floor</span><select value={floor} onChange={e=>{setFloor(e.target.value);setPage(1)}}><option value="">All floors</option>{[0,1,2,3,4,5].map(v=><option key={v} value={v}>{v===0?'Basement':`Floor ${v}`}</option>)}</select></label></div>
+    <div className="wanted-controls"><div className="wanted-search"><Search size={18}/><input aria-label="Search wanted posts" value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}} placeholder="Search the board" /></div><details className="home-filter-details wanted-filter-details"><summary><SlidersHorizontal size={16}/>Filters{category!=='All'||floor?<span>On</span>:null}</summary><div className="wanted-filter-options"><label className="wanted-floor"><span>Floor</span><select value={floor} onChange={e=>{setFloor(e.target.value);setPage(1)}}><option value="">All floors</option>{[0,1,2,3,4,5].map(v=><option key={v} value={v}>{v===0?'Basement':`Floor ${v}`}</option>)}</select></label><div className="wanted-categories" aria-label="Filter by category">{categories.map(value=><NeuChip key={value} selected={category===value} onClick={()=>{setCategory(value);setPage(1)}}>{value}</NeuChip>)}</div></div></details></div>
     <div className="wanted-tabs"><NeuChip selected={tab==='board'} onClick={()=>{setTab('board');setPage(1)}}>Open board</NeuChip><NeuChip selected={tab==='mine'} onClick={()=>{setTab('mine');setPage(1)}}>My posts</NeuChip></div>
-    <div className="wanted-categories">{categories.map(value=><NeuChip key={value} selected={category===value} onClick={()=>{setCategory(value);setPage(1)}}>{value}</NeuChip>)}</div>
     {query.isPending && <div className="wanted-grid">{[1,2,3].map(i=><NeuCard className="wanted-card" key={i}><NeuSkeleton/><NeuSkeleton/><NeuSkeleton/></NeuCard>)}</div>}
     {query.isError && <NeuCard className="state-panel"><h2>The wanted board didn’t load</h2><p>{query.error.message}</p><NeuButton onClick={()=>void query.refetch()}>Try again</NeuButton></NeuCard>}
     {query.isSuccess && !posts.length && <NeuCard className="state-panel wanted-empty-panel"><NeuEmptyState title={tab==='mine'?"You haven't asked for anything yet":'The board is quiet'} description={tab==='mine'?'Your wanted requests will show up here.':'Nobody has asked for anything yet. Need something? Ask the hostel, someone nearby may already have it.'} action={tab==='mine'?<NeuButton variant="primary" icon={<Plus size={16}/>} onClick={()=>setCreateOpen(true)}>Ask for something</NeuButton>:<div className="wanted-empty-actions"><NeuButton variant="primary" icon={<Plus size={16}/>} onClick={()=>setCreateOpen(true)}>Ask for something</NeuButton><Link to="/items/new" className="neu-button">I have something to lend</Link></div>}/></NeuCard>}
     {!!posts.length && <div className="wanted-grid">{posts.map(post=><WantedCard key={post.id} post={post}/>)}</div>}
     {query.data?.pagination.hasMore && <div className="wanted-paging"><NeuButton onClick={()=>setPage(page+1)}>Load more</NeuButton></div>}
     <CreateWantedModal open={createOpen} onClose={()=>setCreateOpen(false)} onCreated={()=>{setTab('mine');setPage(1);void client.invalidateQueries({queryKey:['wanted']})}}/>
+    <QuickAddMenu />
   </div>
 }
 
@@ -63,7 +72,7 @@ function CreateWantedModal({open,onClose,onCreated}:{open:boolean;onClose:()=>vo
   const suggestion=useQuery({queryKey:['wanted-suggestions',title,communityId],enabled:title.trim().length>=2&&Boolean(communityId),queryFn:()=>apiRequest<{items:Array<{id:string;title:string;category:string;owner:{floor:number|null;room:string|null}}> }>(`/api/items?available=true&page=1&search=${encodeURIComponent(title.trim())}`)})
   const create=useMutation({mutationFn:()=>apiRequest<{post:WantedPost}>('/api/wanted',{method:'POST',body:{title,category,note:note||undefined,neededBy:neededBy||undefined}}),onSuccess:async({post})=>{onCreated();onClose();setTitle('');setNote('');await client.invalidateQueries({queryKey:['wanted']});navigate(`/wanted/${post.id}`)}})
   return <NeuModal open={open} onClose={onClose} title="Post a request"><form className="wanted-form" onSubmit={e=>{e.preventDefault();create.mutate()}}>
-    <NeuInput label="What do you need?" value={title} onChange={e=>setTitle(e.target.value)} maxLength={80} required placeholder="e.g. A drill for a shelf" hint="A short name helps neighbours spot it."/>
+    <NeuInput label="What do you need?" value={title} onChange={e=>setTitle(e.target.value)} maxLength={80} required autoComplete="off" placeholder="e.g. A drill for a shelf" hint="A short name helps neighbours spot it."/>
     {suggestion.data?.items.length ? <div className="wanted-suggestions"><strong>Someone already listed this</strong>{suggestion.data.items.slice(0,3).map(item=><Link key={item.id} to={`/items/${item.id}`} onClick={onClose}>{item.title} · {formatLocation(item.owner.floor,item.owner.room)||item.category} <span>View item →</span></Link>)}</div>:null}
     <label className="field"><span className="field__label">Category</span><select className="neu-select" value={category} onChange={e=>setCategory(e.target.value)}>{ITEM_CATEGORIES.map(item=><option key={item}>{item}</option>)}</select><span className="field__message">Choose the closest match.</span></label>
     <label className="field"><span className="field__label">Note (optional)</span><textarea className="neu-textarea" rows={3} maxLength={300} value={note} onChange={e=>setNote(e.target.value)} placeholder="Add a little detail"/></label>
