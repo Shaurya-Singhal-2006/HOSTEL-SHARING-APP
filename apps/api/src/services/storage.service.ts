@@ -5,6 +5,8 @@ import express from 'express'
 import sharp from 'sharp'
 import { env } from '../config/env.js'
 import { HttpError } from '../lib/errors.js'
+import { prisma } from '../lib/prisma.js'
+import { asyncHandler } from '../lib/async-handler.js'
 
 const uploadRoot = resolve(process.cwd(), env.UPLOAD_DIR)
 const apiPublicUrl = env.API_PUBLIC_URL.replace(/\/+$/, '')
@@ -105,4 +107,12 @@ export const uploadsStatic = express.static(uploadRoot, {
   setHeaders(response) {
     response.setHeader('X-Content-Type-Options', 'nosniff')
   },
+})
+
+export const requireItemPhotoMembership: express.RequestHandler = asyncHandler(async (req, _res, next) => {
+  const match = /^\/items\/([0-9a-f-]{36})\/([0-9a-f-]{36})(?:\.thumb)?\.webp$/i.exec(req.path)
+  if (!match || !req.activeCommunity) throw new HttpError(404, 'Photo not found.')
+  const item = await prisma.item.findFirst({ where: { id: match[1], communityId: req.activeCommunity.id, photos: { has: `items/${match[1]}/${match[2]}.webp` }, OR: [{ status: { not: 'hidden' } }, { ownerId: req.currentUser!.id }] }, select: { id: true } })
+  if (!item) throw new HttpError(404, 'Photo not found.')
+  next()
 })

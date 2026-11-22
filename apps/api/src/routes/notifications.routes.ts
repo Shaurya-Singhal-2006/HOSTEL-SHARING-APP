@@ -1,8 +1,8 @@
 import { Router } from 'express'
 import { listNotifications, readAllNotifications } from '../controllers/requests.controller.js'
-import { requireAuth, requireCompleteProfile, requireJoined } from '../middleware/auth.js'
+import { requireAuth, requireCompleteProfile, requireCommunity } from '../middleware/auth.js'
 
 export const notificationsRouter = Router()
-notificationsRouter.use(requireAuth, requireJoined, requireCompleteProfile)
+notificationsRouter.use(requireAuth, requireCommunity, requireCompleteProfile)
 notificationsRouter.get('/', listNotifications)
 notificationsRouter.patch('/read-all', readAllNotifications)

@@ -22,11 +22,10 @@ export const patchMe: RequestHandler = asyncHandler(async (req, res) => {
   const patch = updateProfileSchema.parse(req.body)
   const currentUser = req.currentUser
   if (!currentUser) throw new HttpError(401, 'Sign in to continue.')
+  if (patch.floor !== undefined || patch.room !== undefined) throw new HttpError(400, 'Location is community-specific. Update it at PATCH /api/communities/:id/me with X-Community-Id.')
 
-  const data: { name?: string; floor?: number; room?: string; phone?: string | null; onboardingTourCompleted?: boolean } = {}
+  const data: { name?: string; phone?: string | null; onboardingTourCompleted?: boolean } = {}
   if (patch.name !== undefined) data.name = patch.name
-  if (patch.floor !== undefined) data.floor = patch.floor
-  if (patch.room !== undefined) data.room = patch.room.trim().toUpperCase()
   if (patch.phone !== undefined) data.phone = patch.phone || null
   if (patch.onboardingTourCompleted !== undefined) data.onboardingTourCompleted = patch.onboardingTourCompleted
 

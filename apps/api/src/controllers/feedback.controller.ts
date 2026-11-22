@@ -10,6 +10,6 @@ const feedbackSchema = z.object({
 
 export const submitFeedback: RequestHandler = asyncHandler(async (req, res) => {
   const input = feedbackSchema.parse(req.body)
-  await prisma.feedback.create({ data: { userId: req.currentUser!.id, message: input.message } })
+  await prisma.feedback.create({ data: { communityId: req.activeCommunity!.id, userId: req.currentUser!.id, message: input.message } })
   res.status(201).json({ ok: true })
 })

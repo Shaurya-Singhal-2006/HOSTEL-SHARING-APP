@@ -36,8 +36,11 @@ const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(10000).default(1),
 }).strict()
 
-const ownerSelect = { id: true, name: true, floor: true, room: true, avatarUrl: true, trustScore: true } as const
-const itemInclude = { owner: { select: ownerSelect } } as const
+const itemInclude = (communityId: string) => ({ owner: { select: { id: true, name: true, avatarUrl: true, memberships: { where: { communityId, status: 'active' as const }, select: { level1Value: true, level2Value: true, trustScore: true }, take: 1 } } } })
+function serializeCommunityItem(item: any, viewerId: string) {
+  const membership = item.owner?.memberships?.[0]
+  return serializeItem({ ...item, owner: { ...item.owner, floor: membership?.level1Value && /^\d+$/.test(membership.level1Value) ? Number(membership.level1Value) : null, room: membership?.level2Value ?? null, trustScore: membership?.trustScore ?? 0 } }, viewerId)
+}
 const files = (req: Parameters<RequestHandler>[0]) => (req.files ?? []) as Express.Multer.File[]
 
 function parseRemovePhotos(value: unknown): string[] {
@@ -52,13 +55,16 @@ function parseRemovePhotos(value: unknown): string[] {
 export const listItems: RequestHandler = asyncHandler(async (req, res) => {
   const query = listQuerySchema.parse(req.query)
   const user = req.currentUser!
+  const blocks = await prisma.userBlock.findMany({ where: { OR: [{ blockerId: user.id }, { blockedId: user.id }] }, select: { blockerId: true, blockedId: true } })
+  const hiddenOwners = blocks.map((b) => b.blockerId === user.id ? b.blockedId : b.blockerId)
   const conditions: Prisma.Sql[] = [
     Prisma.sql`i.community_id = ${user.communityId}::uuid`,
     Prisma.sql`(i.status <> 'hidden' OR i.owner_id = ${user.id}::uuid)`,
   ]
   if (query.available === 'true') conditions.push(Prisma.sql`i.status = 'available'`)
   if (query.category) conditions.push(Prisma.sql`i.category = ${query.category}`)
-  if (query.floor !== undefined) conditions.push(Prisma.sql`owner.floor = ${query.floor}`)
+  if (query.floor !== undefined) conditions.push(Prisma.sql`owner_membership.level1_value = ${String(query.floor)}`)
+  if (hiddenOwners.length) conditions.push(Prisma.sql`i.owner_id NOT IN (${Prisma.join(hiddenOwners.map((id) => Prisma.sql`${id}::uuid`))})`)
   const search = query.search.replace(/[%_\\]/g, '').trim()
   if (search) {
     const partial = `%${search}%`
@@ -77,15 +83,16 @@ export const listItems: RequestHandler = asyncHandler(async (req, res) => {
     }>>(Prisma.sql`
       SELECT i.id, i.community_id, i.owner_id, i.title, i.description, i.category, i.condition, i.photos,
              i.status, i.max_lend_days, i.created_at,
-             owner.name AS owner_name, owner.floor AS owner_floor, owner.room AS owner_room,
-             owner.avatar_url AS owner_avatar_url, owner.trust_score AS owner_trust_score
+      owner.name AS owner_name, owner_membership.level1_value AS owner_floor, owner_membership.level2_value AS owner_room,
+             owner.avatar_url AS owner_avatar_url, owner_membership.trust_score AS owner_trust_score
       FROM items i JOIN users owner ON owner.id = i.owner_id
+      JOIN community_members owner_membership ON owner_membership.user_id = owner.id AND owner_membership.community_id = i.community_id AND owner_membership.status = 'active'
       WHERE ${whereSql}
       ORDER BY i.created_at DESC, i.id DESC
       LIMIT 20 OFFSET ${skip}
     `),
     prisma.$queryRaw<Array<{ total: number }>>(Prisma.sql`
-      SELECT COUNT(*)::int AS total FROM items i JOIN users owner ON owner.id = i.owner_id WHERE ${whereSql}
+      SELECT COUNT(*)::int AS total FROM items i JOIN users owner ON owner.id = i.owner_id JOIN community_members owner_membership ON owner_membership.user_id = owner.id AND owner_membership.community_id = i.community_id AND owner_membership.status = 'active' WHERE ${whereSql}
     `),
   ])
   const total = count[0]?.total ?? 0
@@ -113,21 +120,22 @@ export const getItem: RequestHandler = asyncHandler(async (req, res) => {
   const id = idSchema.parse(req.params.id)
   const user = req.currentUser!
   const item = await prisma.item.findFirst({
-    where: { id, communityId: user.communityId, OR: [{ status: { not: 'hidden' } }, { ownerId: user.id }] },
-    include: itemInclude,
+    where: { id, communityId: user.communityId, OR: [{ status: { not: 'hidden' } }, { ownerId: user.id }], owner: { memberships: { some: { communityId: user.communityId, status: 'active' } } } },
+    include: itemInclude(user.communityId),
   })
   if (!item) throw new HttpError(404, 'Item not found.')
-  res.json({ item: serializeItem(item, user.id) })
+  if (item.ownerId !== user.id && await prisma.userBlock.findFirst({ where: { OR: [{ blockerId: user.id, blockedId: item.ownerId }, { blockerId: item.ownerId, blockedId: user.id }] } })) throw new HttpError(404, 'Item not found.')
+  res.json({ item: serializeCommunityItem(item, user.id) })
 })
 
 export const getMyItems: RequestHandler = asyncHandler(async (req, res) => {
   const user = req.currentUser!
   const items = await prisma.item.findMany({
     where: { ownerId: user.id, communityId: user.communityId },
-    include: itemInclude,
+    include: itemInclude(user.communityId),
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   })
-  res.json({ items: items.map((item) => serializeItem(item, user.id)) })
+  res.json({ items: items.map((item) => serializeCommunityItem(item, user.id)) })
 })
 
 export const getPopularItems: RequestHandler = asyncHandler(async (req, res) => {
@@ -135,17 +143,17 @@ export const getPopularItems: RequestHandler = asyncHandler(async (req, res) => 
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
   const groups = await prisma.borrowRequest.groupBy({
     by: ['itemId'],
-    where: { createdAt: { gte: since }, item: { communityId: user.communityId, status: { not: 'hidden' } } },
+    where: { createdAt: { gte: since }, item: { communityId: user.communityId, status: { not: 'hidden' }, owner: { memberships: { some: { communityId: user.communityId, status: 'active' } } } } },
     _count: { _all: true },
     orderBy: { _count: { itemId: 'desc' } },
     take: 6,
   })
   const ids = groups.map((group) => group.itemId)
-  const records = ids.length ? await prisma.item.findMany({ where: { id: { in: ids }, communityId: user.communityId, status: { not: 'hidden' } }, include: itemInclude }) : []
+  const records = ids.length ? await prisma.item.findMany({ where: { id: { in: ids }, communityId: user.communityId, status: { not: 'hidden' }, owner: { memberships: { some: { communityId: user.communityId, status: 'active' } } } }, include: itemInclude(user.communityId) }) : []
   const byId = new Map(records.map((item) => [item.id, item]))
   const items = groups.flatMap((group) => {
     const item = byId.get(group.itemId)
-    return item ? [{ ...serializeItem(item, user.id), requestCount: group._count._all }] : []
+    return item ? [{ ...serializeCommunityItem(item, user.id), requestCount: group._count._all }] : []
   })
   res.json({ items })
 })
@@ -166,13 +174,13 @@ export const createItem: RequestHandler = asyncHandler(async (req, res) => {
         id, communityId: user.communityId, ownerId: user.id, ...itemFields,
         maxLendDays, photos: photoPaths,
       },
-      include: itemInclude,
+      include: itemInclude(user.communityId),
     })
   } catch (error) {
     await deleteImages(photoPaths)
     throw error
   }
-  res.status(201).json({ item: serializeItem(item, user.id) })
+  res.status(201).json({ item: serializeCommunityItem(item, user.id) })
 })
 
 export const updateItem: RequestHandler = asyncHandler(async (req, res) => {
@@ -189,7 +197,7 @@ export const updateItem: RequestHandler = asyncHandler(async (req, res) => {
 
   const existing = await prisma.item.findFirst({
     where: { id, ownerId: user.id, communityId: user.communityId },
-    include: itemInclude,
+    include: itemInclude(user.communityId),
   })
   if (!existing) throw new HttpError(404, 'Item not found.')
   if (removePhotos.some((photoPath) => !existing.photos.includes(photoPath))) {
@@ -209,14 +217,14 @@ export const updateItem: RequestHandler = asyncHandler(async (req, res) => {
         ...(maxLendDays === undefined ? {} : { maxLendDays }),
         photos: [...nextPhotos, ...addedPaths],
       },
-      include: itemInclude,
+      include: itemInclude(user.communityId),
     })
   } catch (error) {
     await deleteImages(addedPaths)
     throw error
   }
   await deleteImages(removePhotos)
-  res.json({ item: serializeItem(item, user.id) })
+  res.json({ item: serializeCommunityItem(item, user.id) })
 })
 
 export const deleteItem: RequestHandler = asyncHandler(async (req, res) => {
@@ -227,7 +235,7 @@ export const deleteItem: RequestHandler = asyncHandler(async (req, res) => {
     select: { id: true, photos: true },
   })
   if (!existing) throw new HttpError(404, 'Item not found.')
-  const activeRequests = await prisma.borrowRequest.count({ where: { itemId: id, status: 'accepted' } })
+  const activeRequests = await prisma.borrowRequest.count({ where: { communityId: user.communityId, itemId: id, status: 'accepted' } })
   if (activeRequests) throw new HttpError(409, 'This item cannot be deleted while an accepted request is active.')
   const deleted = await prisma.item.deleteMany({ where: { id, ownerId: user.id, communityId: user.communityId } })
   if (!deleted.count) throw new HttpError(404, 'Item not found.')

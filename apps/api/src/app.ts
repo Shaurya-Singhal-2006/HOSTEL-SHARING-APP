@@ -6,16 +6,18 @@ import { env, isProduction } from './config/env.js'
 import { HttpError } from './lib/errors.js'
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js'
 import { authRouter } from './routes/auth.routes.js'
-import { joinRouter } from './routes/join.routes.js'
 import { meRouter } from './routes/me.routes.js'
 import { itemsRouter } from './routes/items.routes.js'
 import { categoriesRouter } from './routes/categories.routes.js'
-import { uploadsStatic } from './services/storage.service.js'
+import { requireItemPhotoMembership, uploadsStatic } from './services/storage.service.js'
+import { requireAuth, requireCommunity } from './middleware/auth.js'
 import { requestsRouter } from './routes/requests.routes.js'
 import { notificationsRouter } from './routes/notifications.routes.js'
 import { wantedRouter } from './routes/wanted.routes.js'
 import { ratingsRouter } from './routes/ratings.routes.js'
 import { feedbackRouter } from './routes/feedback.routes.js'
+import { communitiesRouter } from './routes/communities.routes.js'
+import { blocksRouter, reportsRouter } from './routes/safety.routes.js'
 
 export const app = express()
 
@@ -31,14 +33,16 @@ app.use(cors({
 }))
 app.use(express.json({ limit: '1mb' }))
 app.use(cookieParser())
-app.use('/uploads', uploadsStatic)
+app.use('/uploads', requireAuth, requireCommunity, requireItemPhotoMembership, uploadsStatic)
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'lendloop-api' })
 })
 app.use('/api/auth', authRouter)
 app.use('/api/me', meRouter)
-app.use('/api/join', joinRouter)
+app.use('/api/communities', communitiesRouter)
+app.use('/api/reports', reportsRouter)
+app.use('/api/blocks', blocksRouter)
 app.use('/api/items', itemsRouter)
 app.use('/api/categories', categoriesRouter)
 app.use('/api/requests', requestsRouter)

@@ -25,8 +25,10 @@ const feedSchema = z.object({
   page: z.coerce.number().int().min(1).max(10000).default(1), mine: z.enum(['true', 'false']).default('false'),
 }).strict()
 
-function publicAuthor(user: { id: string; name: string; floor: number | null; room: string | null; trustScore: number }) {
-  return { id: user.id, name: user.name, floor: user.floor, room: user.room, trustScore: user.trustScore }
+function publicAuthor(user: any) {
+  const member = user.memberships?.[0]
+  const floor = member?.level1Value && /^\d+$/.test(member.level1Value) ? Number(member.level1Value) : null
+  return { id: user.id, name: user.name, floor, room: member?.level2Value ?? null, trustScore: member?.trustScore ?? 0 }
 }
 function serializePost(post: any, viewerId: string) {
   return {
@@ -39,23 +41,26 @@ function serializePost(post: any, viewerId: string) {
   }
 }
 
-const authorSelect = { id: true, name: true, floor: true, room: true, trustScore: true } as const
+const authorSelect = (communityId: string) => ({ id: true, name: true, memberships: { where: { communityId, status: 'active' as const }, select: { level1Value: true, level2Value: true, trustScore: true }, take: 1 } })
 const responseCount = { _count: { select: { responses: true } } } as const
 
 export const listWanted: RequestHandler = asyncHandler(async (req, res) => {
   const query = feedSchema.parse(req.query)
   const user = req.currentUser!
+  const blockRecords = await prisma.userBlock.findMany({ where: { OR: [{ blockerId: user.id }, { blockedId: user.id }] }, select: { blockerId: true, blockedId: true } })
+  const hiddenUserIds = blockRecords.map((block) => block.blockerId === user.id ? block.blockedId : block.blockerId)
   const where: Prisma.WantedPostWhereInput = {
     communityId: user.communityId,
-    ...(query.mine === 'true' ? { authorId: user.id } : { status: query.status ?? 'open' }),
+    authorId: query.mine === 'true' ? user.id : { notIn: hiddenUserIds },
+    ...(query.mine === 'true' ? {} : { status: query.status ?? 'open' }),
     ...(query.mine === 'true' && query.status ? { status: query.status } : {}),
     ...(query.category ? { category: query.category } : {}),
-    ...(query.floor !== undefined ? { author: { floor: query.floor } } : {}),
+    ...(query.floor !== undefined ? { author: { memberships: { some: { communityId: user.communityId, status: 'active', level1Value: String(query.floor) } } } } : {}),
     ...(query.search ? { OR: [{ title: { contains: query.search, mode: 'insensitive' } }, { note: { contains: query.search, mode: 'insensitive' } }] } : {}),
   }
   const pageSize = 20
   const [posts, total] = await Promise.all([
-    prisma.wantedPost.findMany({ where, include: { author: { select: authorSelect }, ...responseCount, responses: { where: { responderId: user.id }, select: { responderId: true } } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: pageSize, skip: (query.page - 1) * pageSize }),
+    prisma.wantedPost.findMany({ where, include: { author: { select: authorSelect(user.communityId) }, ...responseCount, responses: { where: { responderId: user.id }, select: { responderId: true } } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: pageSize, skip: (query.page - 1) * pageSize }),
     prisma.wantedPost.count({ where }),
   ])
   res.json({ posts: posts.map((post) => serializePost(post, user.id)), pagination: { page: query.page, pageSize, total, hasMore: query.page * pageSize < total } })
@@ -71,11 +76,11 @@ export const createWanted: RequestHandler = asyncHandler(async (req, res) => {
       // Lock the user's row while checking the open-post cap. Returning the UUID
       // avoids PostgreSQL's `void` return type from advisory-lock functions.
       await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT id FROM users WHERE id = ${user.id}::uuid FOR UPDATE`)
-      const openCount = await tx.wantedPost.count({ where: { authorId: user.id, status: 'open' } })
+      const openCount = await tx.wantedPost.count({ where: { communityId: user.communityId, authorId: user.id, status: 'open' } })
       if (openCount >= env.WANTED_MAX_OPEN_POSTS) {
         throw new HttpError(409, `You can have up to ${env.WANTED_MAX_OPEN_POSTS} open wanted posts.`)
       }
-      return tx.wantedPost.create({ data: { authorId: user.id, communityId: user.communityId, title: input.title, category: input.category, note: input.note ?? '', neededBy: input.neededBy ? day(input.neededBy) : null }, include: { author: { select: authorSelect }, ...responseCount, responses: { where: { responderId: user.id }, select: { responderId: true } } } })
+      return tx.wantedPost.create({ data: { authorId: user.id, communityId: user.communityId, title: input.title, category: input.category, note: input.note ?? '', neededBy: input.neededBy ? day(input.neededBy) : null }, include: { author: { select: authorSelect(user.communityId) }, ...responseCount, responses: { where: { responderId: user.id }, select: { responderId: true } } } })
     })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -93,10 +98,10 @@ export const createWanted: RequestHandler = asyncHandler(async (req, res) => {
 export const getWanted: RequestHandler = asyncHandler(async (req, res) => {
   const id = idSchema.parse(req.params.id)
   const user = req.currentUser!
-  const post = await prisma.wantedPost.findFirst({ where: { id, communityId: user.communityId }, include: { author: { select: authorSelect }, ...responseCount, responses: { where: { responderId: user.id }, select: { id: true, responderId: true, message: true, createdAt: true } } } })
+  const post = await prisma.wantedPost.findFirst({ where: { id, communityId: user.communityId }, include: { author: { select: authorSelect(user.communityId) }, ...responseCount, responses: { where: { communityId: user.communityId, responderId: user.id }, select: { id: true, responderId: true, message: true, createdAt: true } } } })
   if (!post) throw new HttpError(404, 'Wanted post not found.')
   const isAuthor = post.authorId === user.id
-  const responses = isAuthor ? await prisma.wantedResponse.findMany({ where: { wantedPostId: id }, include: { responder: { select: { id: true, name: true, floor: true, room: true, trustScore: true, phone: true } } }, orderBy: { createdAt: 'asc' } }) : post.responses
+  const responses = isAuthor ? await prisma.wantedResponse.findMany({ where: { wantedPostId: id, communityId: user.communityId }, include: { responder: { select: { id: true, name: true, phone: true, memberships: { where: { communityId: user.communityId, status: 'active' }, select: { level1Value: true, level2Value: true, trustScore: true }, take: 1 } } } }, orderBy: { createdAt: 'asc' } }) : post.responses
   const visibleResponses = isAuthor ? responses.map((response: any) => ({ id: response.id, message: response.message, createdAt: response.createdAt, responder: { ...publicAuthor(response.responder), ...(post.status === 'open' || (post.status === 'fulfilled' && post.helperId === response.responderId) ? { phone: response.responder.phone } : {}) } })) : []
   res.json({ post: { ...serializePost({ ...post, responses: post.responses }, user.id), responses: visibleResponses, myResponse: isAuthor ? null : (post.responses[0] ? { id: post.responses[0].id, message: post.responses[0].message, createdAt: post.responses[0].createdAt } : null) } })
 })
@@ -114,8 +119,10 @@ export const respondWanted: RequestHandler = asyncHandler(async (req, res) => {
       if (post.authorId === user.id) throw new HttpError(400, 'You cannot respond to your own post.')
       if (post.status !== 'open') throw new HttpError(409, 'This wanted post is no longer open.')
       if (post.neededBy && post.neededBy < day(today())) throw new HttpError(409, 'This wanted post has expired.')
-      const created = await tx.wantedResponse.create({ data: { wantedPostId: id, responderId: user.id, message: input.message ?? '' } })
-      await tx.notification.create({ data: { userId: post.authorId, wantedPostId: id, type: 'wanted_response', message: `${user.name} can help with ${post.title}.` } })
+      const blocked = await tx.userBlock.findFirst({ where: { OR: [{ blockerId: user.id, blockedId: post.authorId }, { blockerId: post.authorId, blockedId: user.id }] } })
+      if (blocked) throw new HttpError(403, 'This member is unavailable.')
+      const created = await tx.wantedResponse.create({ data: { communityId: user.communityId, wantedPostId: id, responderId: user.id, message: input.message ?? '' } })
+      await tx.notification.create({ data: { communityId: user.communityId, userId: post.authorId, wantedPostId: id, type: 'wanted_response', message: `${user.name} can help with ${post.title}.` } })
       return created
     })
     res.status(201).json({ response })
@@ -136,12 +143,12 @@ export const fulfillWanted: RequestHandler = asyncHandler(async (req, res) => {
     if (post.status !== 'open') throw new HttpError(409, 'Only open posts can be fulfilled.')
     let helperId: string | null = null
     if (responseId) {
-      const response = await tx.wantedResponse.findFirst({ where: { id: responseId, wantedPostId: id }, select: { responderId: true } })
+      const response = await tx.wantedResponse.findFirst({ where: { id: responseId, communityId: user.communityId, wantedPostId: id }, select: { responderId: true } })
       if (!response) throw new HttpError(400, 'Choose a responder on this post.')
       helperId = response.responderId
     }
-    await tx.wantedPost.update({ where: { id }, data: { status: 'fulfilled', helperId } })
-    if (helperId) await tx.notification.create({ data: { userId: helperId, wantedPostId: id, type: 'wanted_helper_selected', message: `${user.name} marked you as the helper for their wanted post.` } })
+    await tx.wantedPost.updateMany({ where: { id, communityId: user.communityId }, data: { status: 'fulfilled', helperId } })
+    if (helperId) await tx.notification.create({ data: { communityId: user.communityId, userId: helperId, wantedPostId: id, type: 'wanted_helper_selected', message: `${user.name} marked you as the helper for their wanted post.` } })
   })
   res.json({ ok: true })
 })
