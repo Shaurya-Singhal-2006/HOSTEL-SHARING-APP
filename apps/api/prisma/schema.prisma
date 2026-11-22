@@ -37,15 +37,89 @@ enum NotificationType {
   wanted_helper_selected
 }
 
+enum CommunityType {
+  hostel
+  apartment
+  office
+  college
+  other
+}
+
+enum CommunityJoinMode {
+  open_with_code
+  approval_required
+}
+
+enum CommunityMemberRole {
+  admin
+  member
+}
+
+enum CommunityMemberStatus {
+  active
+  pending
+  removed
+}
+
+enum ReportTargetType {
+  user
+  item
+}
+
+enum ReportStatus {
+  open
+  dismissed
+  actioned
+}
+
 model Community {
-  id          String       @id @default(uuid()) @db.Uuid
-  name        String
-  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  users       User[]
-  items       Item[]
-  wantedPosts WantedPost[]
+  id             String             @id @default(uuid()) @db.Uuid
+  name           String
+  type           CommunityType      @default(other)
+  description    String?
+  inviteCode     String             @unique @map("invite_code") @db.VarChar(8)
+  createdBy      String?            @map("created_by") @db.Uuid
+  isActive       Boolean            @default(true) @map("is_active")
+  joinMode       CommunityJoinMode  @default(open_with_code) @map("join_mode")
+  icon           String?
+  accentColor    String?            @map("accent_color") @db.VarChar(7)
+  level1Label    String             @default("Floor") @map("level1_label")
+  level2Label    String             @default("Room") @map("level2_label")
+  level1Options  String[]           @default([]) @map("level1_options")
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  creator        User?              @relation("CommunityCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  legacyUsers    User[]             @relation("LegacyCommunityUsers")
+  members        CommunityMember[]
+  items          Item[]
+  requests       BorrowRequest[]
+  wantedPosts    WantedPost[]
+  wantedResponses WantedResponse[]
+  ratings        Rating[]
+  notifications  Notification[]
+  feedback       Feedback[]
+  reports        Report[]
 
   @@map("communities")
+}
+
+model CommunityMember {
+  id                    String                @id @default(uuid()) @db.Uuid
+  communityId           String                @map("community_id") @db.Uuid
+  userId                String                @map("user_id") @db.Uuid
+  role                  CommunityMemberRole   @default(member)
+  status                CommunityMemberStatus @default(active)
+  level1Value           String?               @map("level1_value")
+  level2Value           String?               @map("level2_value") @db.VarChar(10)
+  trustScore            Int                   @default(0) @map("trust_score")
+  acceptedGuidelinesAt  DateTime?             @map("accepted_guidelines_at") @db.Timestamptz(6)
+  joinedAt              DateTime              @default(now()) @map("joined_at") @db.Timestamptz(6)
+  community             Community             @relation(fields: [communityId], references: [id], onDelete: Restrict)
+  user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([communityId, userId])
+  @@index([communityId, status])
+  @@index([userId, status])
+  @@map("community_members")
 }
 
 model User {
@@ -55,14 +129,16 @@ model User {
   email       String           @unique
   googleId    String?          @unique @map("google_id")
   avatarUrl   String?          @map("avatar_url")
-  joinedHostel Boolean         @default(false) @map("joined_hostel")
+  joinedHostel Boolean        @default(false) @map("joined_hostel")
   floor       Int?
   room        String?
   phone       String?
   trustScore  Int              @default(0) @map("trust_score")
   onboardingTourCompleted Boolean @default(false) @map("onboarding_tour_completed")
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  community   Community        @relation(fields: [communityId], references: [id], onDelete: Restrict)
+  createdCommunities Community[] @relation("CommunityCreator")
+  community   Community        @relation("LegacyCommunityUsers", fields: [communityId], references: [id], onDelete: Restrict)
+  memberships CommunityMember[]
   items       Item[]
   borrowed    BorrowRequest[]  @relation("BorrowerRequests")
   owned       BorrowRequest[]  @relation("OwnerRequests")
@@ -73,6 +149,9 @@ model User {
   ratingsFrom Rating[]         @relation("RatingFrom")
   ratingsTo   Rating[]         @relation("RatingTo")
   feedback    Feedback[]
+  reports     Report[]         @relation("ReportReporter")
+  blocksMade  UserBlock[]      @relation("UserBlocksMade")
+  blocksReceived UserBlock[]   @relation("UserBlocksReceived")
   @@index([communityId])
   @@index([communityId, floor])
   @@map("users")
@@ -105,6 +184,7 @@ model Item {
 
 model BorrowRequest {
   id         String        @id @default(uuid()) @db.Uuid
+  communityId String       @map("community_id") @db.Uuid
   itemId     String        @map("item_id") @db.Uuid
   borrowerId String        @map("borrower_id") @db.Uuid
   ownerId    String        @map("owner_id") @db.Uuid
@@ -117,6 +197,7 @@ model BorrowRequest {
   returnedAt DateTime?     @map("returned_at") @db.Timestamptz(6)
   declineReason String?    @map("decline_reason") @db.VarChar(200)
   item       Item          @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  community  Community     @relation(fields: [communityId], references: [id], onDelete: Restrict)
   borrower  User          @relation("BorrowerRequests", fields: [borrowerId], references: [id], onDelete: Cascade)
   owner     User          @relation("OwnerRequests", fields: [ownerId], references: [id], onDelete: Cascade)
   ratings   Rating[]
@@ -126,11 +207,13 @@ model BorrowRequest {
   @@index([ownerId])
   @@index([borrowerId])
   @@index([itemId, status])
+  @@index([communityId])
   @@map("requests")
 }
 
 model Notification {
   id        String           @id @default(uuid()) @db.Uuid
+  communityId String         @map("community_id") @db.Uuid
   userId    String           @map("user_id") @db.Uuid
   type      NotificationType
   requestId String?          @map("request_id") @db.Uuid
@@ -139,12 +222,14 @@ model Notification {
   read      Boolean          @default(false)
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community Community        @relation(fields: [communityId], references: [id], onDelete: Restrict)
   request   BorrowRequest?   @relation(fields: [requestId], references: [id], onDelete: Cascade)
   wantedPost WantedPost?     @relation(fields: [wantedPostId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([requestId])
   @@index([wantedPostId])
+  @@index([communityId])
   @@map("notifications")
 }
 
@@ -166,26 +251,31 @@ model WantedPost {
   notifications Notification[]
 
   @@index([communityId, status])
+  @@index([communityId])
   @@index([status, createdAt(sort: Desc)])
   @@map("wanted_posts")
 }
 
 model WantedResponse {
   id           String     @id @default(uuid()) @db.Uuid
+  communityId  String     @map("community_id") @db.Uuid
   wantedPostId String     @map("wanted_post_id") @db.Uuid
   responderId  String     @map("responder_id") @db.Uuid
   message      String
   createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   wantedPost   WantedPost @relation(fields: [wantedPostId], references: [id], onDelete: Cascade)
+  community    Community  @relation(fields: [communityId], references: [id], onDelete: Restrict)
   responder   User       @relation(fields: [responderId], references: [id], onDelete: Cascade)
 
   @@index([wantedPostId])
+  @@index([communityId])
   @@unique([wantedPostId, responderId])
   @@map("wanted_responses")
 }
 
 model Rating {
   id         String        @id @default(uuid()) @db.Uuid
+  communityId String       @map("community_id") @db.Uuid
   requestId  String        @map("request_id") @db.Uuid
   fromUserId String        @map("from_user_id") @db.Uuid
   toUserId   String        @map("to_user_id") @db.Uuid
@@ -193,22 +283,58 @@ model Rating {
   comment    String?
   createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   request    BorrowRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  community  Community     @relation(fields: [communityId], references: [id], onDelete: Restrict)
   fromUser   User          @relation("RatingFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
   toUser     User          @relation("RatingTo", fields: [toUserId], references: [id], onDelete: Cascade)
 
   @@unique([requestId, fromUserId])
   @@index([toUserId])
   @@index([toUserId, createdAt(sort: Desc)])
+  @@index([communityId])
   @@map("ratings")
 }
 
 model Feedback {
   id        String   @id @default(uuid()) @db.Uuid
+  communityId String @map("community_id") @db.Uuid
   userId    String   @map("user_id") @db.Uuid
   message   String
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Restrict)
 
   @@index([createdAt(sort: Desc)])
+  @@index([communityId])
   @@map("feedback")
+}
+
+model Report {
+  id         String          @id @default(uuid()) @db.Uuid
+  communityId String         @map("community_id") @db.Uuid
+  reporterId String          @map("reporter_id") @db.Uuid
+  targetType ReportTargetType @map("target_type")
+  targetId   String          @map("target_id") @db.Uuid
+  reason     String
+  note       String?
+  status     ReportStatus    @default(open)
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  community  Community       @relation(fields: [communityId], references: [id], onDelete: Restrict)
+  reporter   User            @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([communityId, status, createdAt(sort: Desc)])
+  @@index([reporterId, createdAt(sort: Desc)])
+  @@index([targetType, targetId])
+  @@map("reports")
+}
+
+model UserBlock {
+  blockerId String   @map("blocker_id") @db.Uuid
+  blockedId String   @map("blocked_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  blocker   User     @relation("UserBlocksMade", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("UserBlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
+  @@index([blockedId])
+  @@map("user_blocks")
 }

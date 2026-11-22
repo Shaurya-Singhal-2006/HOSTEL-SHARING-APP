@@ -71,7 +71,6 @@ API variables in `apps/api/.env`:
 | `UPLOAD_DIR` | API local-disk image directory; defaults to `./uploads` |
 | `GOOGLE_CLIENT_ID` | Google OAuth web client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth web client secret |
-| `HOSTEL_INVITE_CODE` | Private code required to join the seeded hostel |
 | `JWT_SECRET` | Random signing secret, minimum 32 characters |
 | `NODE_ENV` | Set to `production` to enable secure cookies |
 
@@ -84,7 +83,7 @@ API variables in `apps/api/.env`:
 1. **Login:** open `/login`, choose a Google account, and verify the browser returns to LendLoop. A new account should land on `/join`; no college-domain restriction is applied.
 2. **Wrong invite:** submit an incorrect code. Confirm the page shows a clear error and does not advance.
 3. **Rate limit:** submit five incorrect codes, then submit another. Confirm the API responds with HTTP 429 and the page explains the 15-minute wait. Restart the API to clear the in-memory counter before continuing. The limiter is per process; use a shared store if running multiple API instances.
-4. **Join and onboarding:** submit the configured `HOSTEL_INVITE_CODE`; confirm floor and a room such as `B16` are required, the Google name is prefilled, and phone can be left blank.
+4. **Join and onboarding:** submit a community invite code; confirm floor and a room such as `B16` are required, the Google name is prefilled, and phone can be left blank.
 5. **Protected redirects:** in a private/incognito window, open `/profile` and confirm redirect to `/login`. After sign-in but before joining, confirm `/profile` redirects to `/join`. After joining with an incomplete profile, confirm it redirects to `/onboarding`.
 6. **Profile edit:** save a different name, floor, room, and optional phone. Refresh and verify the changes persist. `GET /api/me` returns profile data only to the signed-in account; it returns HTTP 401 without the session cookie.
 7. **Logout:** sign out, confirm return to `/login`, and verify opening `/profile` again redirects to sign-in.
@@ -128,7 +127,7 @@ Authentication and profile setup are Phase 2. Phase 3 adds item listings, local 
 8. Confirm notifications are created for each request transition, the bell shows unread counts, opening it marks all read, and it refreshes every 30 seconds. Check the Requests navigation badge for owner pending requests.
 9. Set an accepted request’s `to_date` to yesterday in the database and refresh Requests; confirm the API returns `isOverdue: true` and the card shows “Overdue”.
 
-The profile floor is stored as an integer: `0` means Basement and `1` through `5` mean Floor 1 through Floor 5. Room values are stored uppercase and must match `^[A-Z][0-9]{1,3}$`. Phase 4 adds no environment variables; the existing `.env.example` remains current.
+The profile floor is stored as an integer: `0` means Basement and `1` through `5` mean Floor 1 through Floor 5. Room values are stored uppercase and must match `^[A-Z][0-9]{1,3}$`. Phase 4 adds no environment variables.
 
 ## Phase 5: Wanted board and reputation
 
