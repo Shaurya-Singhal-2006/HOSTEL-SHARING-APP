@@ -16,7 +16,7 @@ export default function AuthFrame({ title, description, children }: { title: str
         <p className="auth-description">{description}</p>
         {children}
       </NeuCard>
-      <p className="auth-footnote">The little things we share make this place home.</p>
+      <p className="auth-footnote">Borrow a little. Share a lot.</p>
     </div>
   </main>
 }

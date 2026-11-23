@@ -20,7 +20,7 @@ const createSchema = z.object({
 }).strict()
 const respondSchema = z.object({ message: z.string().max(200).optional().transform((value) => value ? sanitizeText(value) : '') }).strict()
 const feedSchema = z.object({
-  category: categorySchema.optional(), floor: z.coerce.number().int().min(0).max(5).optional(),
+  category: categorySchema.optional(), level1: z.string().trim().min(1).max(40).optional(), floor: z.coerce.number().int().min(0).max(5).optional(),
   status: z.enum(['open', 'fulfilled', 'closed']).optional(), search: z.string().trim().max(100).default(''),
   page: z.coerce.number().int().min(1).max(10000).default(1), mine: z.enum(['true', 'false']).default('false'),
 }).strict()
@@ -28,7 +28,7 @@ const feedSchema = z.object({
 function publicAuthor(user: any) {
   const member = user.memberships?.[0]
   const floor = member?.level1Value && /^\d+$/.test(member.level1Value) ? Number(member.level1Value) : null
-  return { id: user.id, name: user.name, floor, room: member?.level2Value ?? null, trustScore: member?.trustScore ?? 0 }
+  return { id: user.id, name: user.name, floor, room: member?.level2Value ?? null, level1Value: member?.level1Value ?? null, level2Value: member?.level2Value ?? null, trustScore: member?.trustScore ?? 0 }
 }
 function serializePost(post: any, viewerId: string) {
   return {
@@ -55,7 +55,7 @@ export const listWanted: RequestHandler = asyncHandler(async (req, res) => {
     ...(query.mine === 'true' ? {} : { status: query.status ?? 'open' }),
     ...(query.mine === 'true' && query.status ? { status: query.status } : {}),
     ...(query.category ? { category: query.category } : {}),
-    ...(query.floor !== undefined ? { author: { memberships: { some: { communityId: user.communityId, status: 'active', level1Value: String(query.floor) } } } } : {}),
+    ...((query.level1 ?? (query.floor === undefined ? undefined : String(query.floor))) !== undefined ? { author: { memberships: { some: { communityId: user.communityId, status: 'active', level1Value: query.level1 ?? String(query.floor) } } } } : {}),
     ...(query.search ? { OR: [{ title: { contains: query.search, mode: 'insensitive' } }, { note: { contains: query.search, mode: 'insensitive' } }] } : {}),
   }
   const pageSize = 20

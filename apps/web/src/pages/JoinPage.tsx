@@ -61,8 +61,8 @@ function JoinCommunityPage() {
     {user && <div className="account-line"><span>Signed in as</span><strong>{user.email}</strong></div>}
     <form className="auth-form" onSubmit={(event) => { void submit(event) }}>
       <NeuInput label="Invite code" value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder="e.g. A1B2C3D4" autoComplete="off" required maxLength={32} error={error || undefined} />
-      <NeuInput label="Location level 1 (optional)" value={level1} onChange={(event) => setLevel1(event.target.value)} placeholder="e.g. Floor 2 or Tower B" maxLength={40} />
-      <NeuInput label="Location level 2 (optional)" value={level2} onChange={(event) => setLevel2(event.target.value)} placeholder="e.g. Room 16 or Flat 402" maxLength={10} />
+      <NeuInput label="Location level 1 (optional)" value={level1} onChange={(event) => setLevel1(event.target.value)} placeholder="Enter your location" maxLength={40} />
+      <NeuInput label="Location level 2 (optional)" value={level2} onChange={(event) => setLevel2(event.target.value)} placeholder="Add another location detail" maxLength={10} />
       <label className="community-guidelines-check"><input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} required /><span>I agree to follow this community’s guidelines.</span></label>
       <NeuButton variant="primary" type="submit" disabled={busy || !code.trim() || !accepted}>{busy ? 'Checking code…' : 'Join community'}</NeuButton>
       <Link className="auth-back-link" to="/start">Back</Link>

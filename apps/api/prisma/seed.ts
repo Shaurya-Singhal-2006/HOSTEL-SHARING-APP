@@ -6,8 +6,8 @@ const prisma = new PrismaClient()
 async function main() {
   await prisma.community.upsert({
     where: { id: '00000000-0000-4000-8000-000000000001' },
-    update: { name: 'LendLoop Hostel' },
-    create: { id: '00000000-0000-4000-8000-000000000001', name: 'LendLoop Hostel' },
+    update: { name: 'My Community' },
+    create: { id: '00000000-0000-4000-8000-000000000001', name: 'My Community' },
   })
 }
 

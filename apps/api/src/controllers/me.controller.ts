@@ -8,7 +8,7 @@ import { toCurrentUser } from '../services/google-auth.service.js'
 const updateProfileSchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
   floor: z.number().int().min(0).max(5).optional(),
-  room: z.string().trim().toUpperCase().regex(/^[A-Z][0-9]{1,3}$/, 'Enter your room like B2 or B16').optional(),
+  room: z.string().trim().toUpperCase().regex(/^[A-Z][0-9]{1,3}$/, 'Enter a valid location value.').optional(),
   phone: z.string().trim().max(30).nullable().optional(),
   onboardingTourCompleted: z.boolean().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, 'Provide at least one profile field.')

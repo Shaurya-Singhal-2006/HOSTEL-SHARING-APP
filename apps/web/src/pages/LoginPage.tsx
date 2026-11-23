@@ -17,8 +17,8 @@ export default function LoginPage() {
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(errorMessage(searchParams.get('error')))
 
-  return <AuthFrame title="Welcome to LendLoop" description="Borrow a little. Share a lot. Sign in to join your hostel community.">
-    <div className="auth-callout"><span className="auth-callout__dot" />Any Google account can join with a hostel invite code.</div>
+  return <AuthFrame title="Welcome to LendLoop" description="Borrow a little. Share a lot. Sign in to join your community.">
+    <div className="auth-callout"><span className="auth-callout__dot" />Create a community for your apartment, hostel, or office, or join one with an invite code.</div>
     {error && <p className="auth-error" role="alert">{error}</p>}
     <NeuButton
       className="google-button"

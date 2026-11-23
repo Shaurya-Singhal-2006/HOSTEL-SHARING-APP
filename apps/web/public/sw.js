@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lendloop-stage2-neumorphic-v2'
+const CACHE_NAME = 'lendloop-community-v3'
 const APP_SHELL = ['/','/manifest.webmanifest']
 
 self.addEventListener('install', event => {

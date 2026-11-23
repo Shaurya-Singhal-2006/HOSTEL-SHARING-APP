@@ -39,7 +39,7 @@ export async function findOrCreateGoogleUser(identity: GoogleIdentity) {
   }
 
   const community = await prisma.community.findFirst({ orderBy: { createdAt: 'asc' } })
-  if (!community) throw new HttpError(503, 'The hostel is not configured yet. Please try again later.')
+  if (!community) throw new HttpError(503, 'No community is set up yet. Please try again later.')
   return prisma.user.create({
     data: {
       communityId: community.id,

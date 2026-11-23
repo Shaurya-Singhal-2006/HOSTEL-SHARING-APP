@@ -5,7 +5,10 @@ export const ITEM_CATEGORIES = [
   'Tools', 'Electronics', 'Kitchen', 'Cleaning', 'Study', 'Sports', 'Clothing/Laundry', 'Other',
 ] as const
 
-export type PublicOwner = Pick<User, 'id' | 'name' | 'floor' | 'room' | 'avatarUrl' | 'trustScore'>
+export type PublicOwner = Pick<User, 'id' | 'name' | 'floor' | 'room' | 'avatarUrl' | 'trustScore'> & {
+  level1Value?: string | null
+  level2Value?: string | null
+}
 export type PublicItem = Omit<Item, 'photos'> & {
   photos: { path: string; url: string; thumbnailUrl: string }[]
   owner: PublicOwner

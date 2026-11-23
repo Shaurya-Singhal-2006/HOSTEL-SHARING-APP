@@ -31,6 +31,7 @@ const idSchema = z.string().uuid()
 const listQuerySchema = z.object({
   search: z.string().trim().max(100).default(''),
   category: categorySchema.optional(),
+  level1: z.string().trim().min(1).max(40).optional(),
   floor: z.coerce.number().int().min(0).max(5).optional(),
   available: z.enum(['true', 'false']).optional(),
   page: z.coerce.number().int().min(1).max(10000).default(1),
@@ -39,7 +40,7 @@ const listQuerySchema = z.object({
 const itemInclude = (communityId: string) => ({ owner: { select: { id: true, name: true, avatarUrl: true, memberships: { where: { communityId, status: 'active' as const }, select: { level1Value: true, level2Value: true, trustScore: true }, take: 1 } } } })
 function serializeCommunityItem(item: any, viewerId: string) {
   const membership = item.owner?.memberships?.[0]
-  return serializeItem({ ...item, owner: { ...item.owner, floor: membership?.level1Value && /^\d+$/.test(membership.level1Value) ? Number(membership.level1Value) : null, room: membership?.level2Value ?? null, trustScore: membership?.trustScore ?? 0 } }, viewerId)
+  return serializeItem({ ...item, owner: { ...item.owner, floor: membership?.level1Value && /^\d+$/.test(membership.level1Value) ? Number(membership.level1Value) : null, room: membership?.level2Value ?? null, level1Value: membership?.level1Value ?? null, level2Value: membership?.level2Value ?? null, trustScore: membership?.trustScore ?? 0 } }, viewerId)
 }
 const files = (req: Parameters<RequestHandler>[0]) => (req.files ?? []) as Express.Multer.File[]
 
@@ -63,7 +64,8 @@ export const listItems: RequestHandler = asyncHandler(async (req, res) => {
   ]
   if (query.available === 'true') conditions.push(Prisma.sql`i.status = 'available'`)
   if (query.category) conditions.push(Prisma.sql`i.category = ${query.category}`)
-  if (query.floor !== undefined) conditions.push(Prisma.sql`owner_membership.level1_value = ${String(query.floor)}`)
+  const level1Filter = query.level1 ?? (query.floor === undefined ? undefined : String(query.floor))
+  if (level1Filter !== undefined) conditions.push(Prisma.sql`owner_membership.level1_value = ${level1Filter}`)
   if (hiddenOwners.length) conditions.push(Prisma.sql`i.owner_id NOT IN (${Prisma.join(hiddenOwners.map((id) => Prisma.sql`${id}::uuid`))})`)
   const search = query.search.replace(/[%_\\]/g, '').trim()
   if (search) {
@@ -79,11 +81,11 @@ export const listItems: RequestHandler = asyncHandler(async (req, res) => {
     prisma.$queryRaw<Array<{
       id: string; community_id: string; owner_id: string; title: string; description: string; category: string;
       condition: string; photos: string[]; status: ItemStatus; max_lend_days: number; created_at: Date;
-      owner_name: string; owner_floor: number | null; owner_room: string | null; owner_avatar_url: string | null; owner_trust_score: number;
+      owner_name: string; owner_level1: string | null; owner_level2: string | null; owner_avatar_url: string | null; owner_trust_score: number;
     }>>(Prisma.sql`
       SELECT i.id, i.community_id, i.owner_id, i.title, i.description, i.category, i.condition, i.photos,
              i.status, i.max_lend_days, i.created_at,
-      owner.name AS owner_name, owner_membership.level1_value AS owner_floor, owner_membership.level2_value AS owner_room,
+      owner.name AS owner_name, owner_membership.level1_value AS owner_level1, owner_membership.level2_value AS owner_level2,
              owner.avatar_url AS owner_avatar_url, owner_membership.trust_score AS owner_trust_score
       FROM items i JOIN users owner ON owner.id = i.owner_id
       JOIN community_members owner_membership ON owner_membership.user_id = owner.id AND owner_membership.community_id = i.community_id AND owner_membership.status = 'active'
@@ -109,7 +111,7 @@ export const listItems: RequestHandler = asyncHandler(async (req, res) => {
       status: row.status,
       maxLendDays: row.max_lend_days,
       createdAt: row.created_at,
-      owner: { id: row.owner_id, name: row.owner_name, floor: row.owner_floor, room: row.owner_room, avatarUrl: row.owner_avatar_url, trustScore: row.owner_trust_score } as PublicOwner,
+      owner: { id: row.owner_id, name: row.owner_name, floor: row.owner_level1 !== null && /^\d+$/.test(row.owner_level1) ? Number(row.owner_level1) : null, room: row.owner_level2, level1Value: row.owner_level1, level2Value: row.owner_level2, avatarUrl: row.owner_avatar_url, trustScore: row.owner_trust_score } as PublicOwner,
     }
     return serializeItem(item, user.id)
   })

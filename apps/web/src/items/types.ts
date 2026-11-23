@@ -4,6 +4,8 @@ export type ItemOwner = {
   name: string
   floor: number | null
   room: string | null
+  level1Value?: string | null
+  level2Value?: string | null
   avatarUrl: string | null
   trustScore: number
 }

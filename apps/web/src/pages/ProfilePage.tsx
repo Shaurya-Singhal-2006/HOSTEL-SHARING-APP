@@ -34,7 +34,7 @@ export default function ProfilePage() {
 
   return <div className="profile-screen profile-screen--in-app">
     <div className="profile-content">
-      <div className="profile-heading"><div><h1>Your profile</h1><p>Make it easy for your hostel neighbours to borrow with confidence.</p></div><div className="profile-heading__actions"><Link to="/tour?replay=1" className="neu-button">Replay the tour</Link><Link to="/help" className="neu-button">Help and answers</Link><Link to="/my-items" className="neu-button">My items</Link><NeuButton onClick={async () => {
+      <div className="profile-heading"><div><h1>Your profile</h1><p>Help your neighbours borrow with confidence.</p></div><div className="profile-heading__actions"><Link to="/tour?replay=1" className="neu-button">Replay the tour</Link><Link to="/help" className="neu-button">Help and answers</Link><Link to="/my-items" className="neu-button">My items</Link><NeuButton onClick={async () => {
       setLogoutError('')
       try {
         await logout()
@@ -56,7 +56,7 @@ export default function ProfilePage() {
           {logoutError && <p className="auth-error" role="alert">{logoutError}</p>}
         </NeuCard>
         <NeuCard className="profile-edit-card">
-          <div className="profile-edit-card__heading"><h2>Edit your details</h2><span>PRIVATE TO YOUR HOSTEL</span></div>
+          <div className="profile-edit-card__heading"><h2>Edit your details</h2><span>PRIVATE TO YOUR COMMUNITY</span></div>
           <ProfileEditor
             user={user}
             community={community.active}

@@ -4,7 +4,7 @@ import { Check, CheckCircle2, Circle, Package, RotateCcw, ThumbsDown, ThumbsUp, 
 import { apiRequest } from '../api/client'
 import ItemVisual from '../components/ItemVisual'
 import { NeuBadge, NeuButton, NeuCard, NeuChip, NeuEmptyState, NeuModal, NeuSkeleton } from '../components/ui'
-import { formatCommunityLocation, formatLocation } from '../items/location'
+import { formatLocation } from '../items/location'
 import ReputationButton from '../components/ReputationButton'
 import { Link } from 'react-router-dom'
 import { useCommunity } from '../auth/CommunityProvider'
@@ -22,7 +22,7 @@ const flowSteps = [{label:'Asked',icon:CheckCircle2},{label:'Accepted',icon:Chec
 
 function requestMessage(request:RequestData & { location: string }) {
   if(request.status==='pending')return request.isBorrower?`Waiting for ${request.other.name} to say yes.`:'Please choose Say yes or Say no.'
-  if(request.status==='accepted')return `Accepted. Pick it up from ${request.location} and return it by ${shortDate(request.toDate)}.`
+  if(request.status==='accepted')return `${request.location ? `Accepted. Pick it up from ${request.location}. ` : 'Accepted. Agree on a pickup place. '}Return it by ${shortDate(request.toDate)}.`
   if(request.status==='returned')return 'This item has been marked as returned. Thanks for sharing.'
   if(request.status==='declined')return 'This request was declined, so the borrow will not go ahead.'
   if(request.status==='cancelled')return 'This request was cancelled, so the borrow will not go ahead.'
@@ -61,7 +61,7 @@ function RequestCard({ request }: { request: RequestData }) {
   })
   const rate=useMutation({mutationFn:()=>apiRequest('/api/ratings',{method:'POST',body:{requestId:request.id,thumbsUp:rating,comment:comment||undefined}}),onSuccess:async()=>{await client.invalidateQueries({queryKey:['requests']});await client.invalidateQueries({queryKey:['reputation',request.other.id]})}})
   const { active } = useCommunity()
-  const location = formatCommunityLocation({ level1Value: request.other.level1Value ?? null, level2Value: request.other.level2Value ?? null }, active) || formatLocation(request.other.floor, request.other.room)
+  const location = formatLocation(request.other, active)
   const requestWithLocation = { ...request, location }
   const statusTone = request.status === 'accepted' || request.status === 'returned' ? 'success' : request.status === 'declined' || request.status === 'cancelled' ? 'neutral' : 'warning'
   const phoneDigits = request.other.phone?.replace(/[^+0-9]/g, '') ?? ''
@@ -74,10 +74,10 @@ function RequestCard({ request }: { request: RequestData }) {
       <p className="request-card__dates">{shortDate(request.fromDate)} – {shortDate(request.toDate)}</p>
       <RequestProgress request={request}/>
       <p className="request-explanation">{requestMessage(requestWithLocation)}</p>
-      <p className="request-card__other">{request.isBorrower ? 'Owner' : 'Requested by'}: <strong><ReputationButton userId={request.other.id} name={request.other.name}/></strong><span>{location}</span></p>
+      <p className="request-card__other">{request.isBorrower ? 'Owner' : 'Requested by'}: <strong><ReputationButton userId={request.other.id} name={request.other.name}/></strong>{location && <span>{location}</span>}</p>
       {request.note && <p className="request-card__note">“{request.note}”</p>}
       {request.declineReason && <p className="request-card__note">Reason: {request.declineReason}</p>}
-      {request.status === 'accepted' && <div className="request-contact"><strong>Contact {request.other.name}</strong><span>{location}</span>{request.other.phone ? <><a href={`tel:${phoneDigits}`}>Call</a><a href={`https://wa.me/${phoneDigits.replace(/\D/g, '')}`} target="_blank" rel="noreferrer">WhatsApp</a></> : <p>No phone added, meet at their room.</p>}</div>}
+      {request.status === 'accepted' && <div className="request-contact"><strong>Contact {request.other.name}</strong>{location && <span>{location}</span>}{request.other.phone ? <><a href={`tel:${phoneDigits}`}>Call</a><a href={`https://wa.me/${phoneDigits.replace(/\D/g, '')}`} target="_blank" rel="noreferrer">WhatsApp</a></> : <p>No phone added, agree on a pickup place.</p>}</div>}
       {request.status==='returned'&&<div className="rating-panel"><strong>{request.myRated?'Thanks for sharing your feedback':'Rate this exchange'}</strong>{request.myRated?<p>{!request.otherRated?'Your feedback is in. The other person can rate this exchange too.':'Both sides have shared their feedback.'}</p>:<><div className="rating-vote"><NeuButton aria-pressed={rating===true} onClick={()=>setRating(true)} icon={<ThumbsUp size={16}/>}>Thumbs up</NeuButton><NeuButton aria-pressed={rating===false} onClick={()=>setRating(false)} icon={<ThumbsDown size={16}/>}>Thumbs down</NeuButton></div><textarea className="neu-textarea" rows={2} maxLength={150} value={comment} onChange={e=>setComment(e.target.value)} placeholder="Add a short note (optional)"/>{rate.isError&&<p className="form-error" role="alert">{rate.error.message}</p>}<NeuButton variant="primary" disabled={rating===null||rate.isPending} onClick={()=>rate.mutate()}>{rate.isPending?'Saving…':'Submit rating'}</NeuButton></>}</div>}
       {action.isError && <p className="form-error" role="alert">{action.error.message}</p>}
       <div className="request-card__actions">

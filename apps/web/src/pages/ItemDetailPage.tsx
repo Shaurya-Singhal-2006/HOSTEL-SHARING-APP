@@ -35,7 +35,7 @@ export default function ItemDetailPage() {
   if (itemQuery.isError || !itemQuery.data) return <NeuCard className="state-panel"><h1>We couldn’t find this item</h1><p>{itemQuery.error?.message ?? 'This listing may have been removed.'}</p><Link to="/" className="neu-button neu-button--primary"><ArrowLeft size={16} />Back to home</Link></NeuCard>
   const item = itemQuery.data
   const photo = item.photos[photoIndex]
-  const location = formatLocation(item.owner.floor, item.owner.room)
+  const location = formatLocation(item.owner, active)
 
   return <div className="detail-page">
     <nav className="breadcrumbs" aria-label="Breadcrumb"><Link to="/">Home</Link><span aria-hidden="true">/</span>{item.isOwner?<Link to="/my-items">My items</Link>:<Link to="/">On the shelf</Link>}<span aria-hidden="true">/</span><span aria-current="page">{item.title}</span></nav>
@@ -59,7 +59,7 @@ export default function ItemDetailPage() {
         <div className="detail-facts"><div><span>Condition</span><strong>{item.condition}</strong></div><div><span>Loan period</span><strong>Up to {item.maxLendDays} days</strong></div></div>
         <NeuCard className="detail-owner">
           <NeuAvatar name={item.owner.name} size="lg" src={item.owner.avatarUrl} />
-          <div className="detail-owner__info"><span className="section-kicker">SHARED BY</span><strong>{item.owner.name}</strong><small><MapPin size={13} />{location || 'Hostel member'}</small></div>
+          <div className="detail-owner__info"><span className="section-kicker">SHARED BY</span><strong>{item.owner.name}</strong>{location && <small><MapPin size={13} />{location}</small>}</div>
           <div className="detail-owner__trust"><ShieldCheck size={17} /><strong>{item.owner.trustScore}</strong><small>trust</small></div>
         </NeuCard>
         {item.isOwner ? <div className="detail-owner-actions"><Link to={`/items/${item.id}/edit`} className="neu-button neu-button--primary"><Edit3 size={16} />Edit item</Link><NeuButton onClick={() => { setDeleteError(''); if (window.confirm('Delete this listing and its photos?')) deleteMutation.mutate() }} disabled={deleteMutation.isPending} icon={<Trash2 size={16} />}>{deleteMutation.isPending ? 'Deleting…' : 'Delete'}</NeuButton></div> : item.status === 'available' ? <NeuButton variant="primary" className="detail-request" onClick={() => setRequestOpen(true)}>Borrow this</NeuButton> : <p className="detail-unavailable">{item.status === 'lent' ? 'Lent out right now' : 'This item is not available right now.'}</p>}

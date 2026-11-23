@@ -1,6 +1,8 @@
 # LendLoop
 
-Hostel item sharing for one campus community. This npm-workspaces monorepo contains a React/Vite frontend and an Express/Prisma API.
+**Borrow a little. Share a lot.**
+
+Share tools and everyday things with the people around you. This npm-workspaces monorepo contains a React/Vite frontend and an Express/Prisma API.
 
 ## Stack
 
@@ -23,7 +25,7 @@ Requirements: Node.js 20.9+ and PostgreSQL 14+.
    npm install -D -w @lendloop/api @types/multer
    ```
 
-4. Apply the database migrations and seed the single hostel community:
+4. Apply the database migrations and seed the starter community:
 
    ```sh
    npm run db:generate
@@ -41,7 +43,7 @@ Requirements: Node.js 20.9+ and PostgreSQL 14+.
 
 6. Open <http://localhost:5173/login>. The UI component specimen remains at <http://localhost:5173/design>. The API health endpoint is <http://localhost:4000/api/health>.
 
-The main seed creates only **LendLoop Hostel**. It does not create student accounts or sample loan history. Google sign-in accepts any verified Google account; the invite code controls access to this hostel.
+The main seed creates only **My Community**. It does not create accounts or sample loan history. Google sign-in accepts any verified Google account; the invite code controls access to this community.
 
 ## Google Cloud Console setup
 
@@ -86,22 +88,22 @@ API variables in `apps/api/.env`:
 1. **Login:** open `/login`, choose a Google account, and verify the browser returns to LendLoop. A new account should land on `/join`; no college-domain restriction is applied.
 2. **Wrong invite:** submit an incorrect code. Confirm the page shows a clear error and does not advance.
 3. **Rate limit:** submit five incorrect codes, then submit another. Confirm the API responds with HTTP 429 and the page explains the 15-minute wait. Restart the API to clear the in-memory counter before continuing. The limiter is per process; use a shared store if running multiple API instances.
-4. **Join and onboarding:** submit a community invite code; confirm floor and a room such as `B16` are required, the Google name is prefilled, and phone can be left blank.
+4. **Join and onboarding:** submit a community invite code; confirm the community’s configured location fields are required, the Google name is prefilled, and phone can be left blank.
 5. **Protected redirects:** in a private/incognito window, open `/profile` and confirm redirect to `/login`. After sign-in but before joining, confirm `/profile` redirects to `/join`. After joining with an incomplete profile, confirm it redirects to `/onboarding`.
-6. **Profile edit:** save a different name, floor, room, and optional phone. Refresh and verify the changes persist. `GET /api/me` returns profile data only to the signed-in account; it returns HTTP 401 without the session cookie.
+6. **Profile edit:** save a different name, the community’s configured location values, and an optional phone number. Refresh and verify the changes persist. `GET /api/me` returns profile data only to the signed-in account; it returns HTTP 401 without the session cookie.
 7. **Logout:** sign out, confirm return to `/login`, and verify opening `/profile` again redirects to sign-in.
 
 ## Phase 3 manual test checklist
 
-1. Sign in, join the hostel, and complete your profile. Open `/` and confirm the Home screen loads. Item and category routes require all three steps.
+1. Sign in, join your community, and complete your profile. Open `/` and confirm the Home screen loads. Item and category routes require all three steps.
 2. Create a listing with one photo, then repeat with two and three photos. Confirm the detail page carousel and Home card show the processed images.
 3. Try four photos, a photo larger than 5 MB, and a text file renamed to `.jpg`. Confirm a clear error appears and no listing is created. The server checks file signatures and accepts only JPEG, PNG, and WebP content.
 4. Edit your listing text and category, remove a current photo, and add a new photo. Confirm saved changes appear on the item detail page and removed image/thumbnail files are gone from `apps/api/uploads/items/<itemId>/`.
 5. In **My items**, change a listing between Available, Lent, and Hidden. Confirm hidden listings disappear from other members’ browse/detail views but remain visible to their owner.
 6. Create enough listings to exceed 20 in one hour for an account and confirm the API responds with HTTP 429.
-7. Search for full and partial words, select a category, toggle Available now, and filter by floor. Load additional pages and confirm newest items appear first without duplicates.
-8. Sign in as a second hostel member and try to edit or delete the first member’s item using its detail URL. The API must return HTTP 404 and leave the listing unchanged.
-9. Inspect `/api/items`, `/api/items/:id`, and `/api/items/mine` responses in devtools. Confirm item owner objects contain only name, floor, room, avatar URL, and trust score; no owner email or phone is returned.
+7. Search for full and partial words, select a category, toggle Available now, and filter by the community’s configured location options. Load additional pages and confirm newest items appear first without duplicates.
+8. Sign in as a second community member and try to edit or delete the first member’s item using its detail URL. The API must return HTTP 404 and leave the listing unchanged.
+9. Inspect `/api/items`, `/api/items/:id`, and `/api/items/mine` responses in devtools. Confirm item owner objects contain only public name, community location values, avatar URL, and trust score; no owner email or phone is returned.
 10. Open `/uploads/` and confirm it returns a not-found response rather than a file listing. Image URLs below it should load. The folder is ignored by Git except for its `.gitkeep`.
 11. Delete a listing without an accepted borrow request. Confirm its item record and photo/thumbnail files are removed. After Phase 4, create an accepted request through the UI and confirm deletion returns HTTP 409.
 
@@ -120,8 +122,8 @@ Authentication and profile setup are Phase 2. Phase 3 adds item listings, local 
 
 ## Phase 4 manual test checklist
 
-1. Run `npm run db:generate` and `npm run db:migrate`. The Phase 4 migration safely converts legacy two-part locations such as `B` + `16` to `B16`, drops invalid combinations to `NULL`, adds floor 0 for Basement, request timestamps/reasons, the active-request index, and notifications.
-2. Edit your profile with room `b16`; confirm it saves as `B16`. Try `16B`; confirm it is rejected with “Enter your room like B2 or B16”. Set floor to 0 and confirm Basement appears in profile, listings, and request contacts.
+1. Run `npm run db:generate` and `npm run db:migrate`. The Phase 4 migration safely converts legacy two-part location values such as `B` + `16` to `B16`, drops invalid combinations to `NULL`, adds location value `0`, request timestamps/reasons, the active-request index, and notifications.
+2. Edit your profile with values matching your community’s location labels and options. Confirm the values are saved and shown with those labels in profile, listings, and request contacts.
 3. Create an item without a photo. Confirm its Home, detail, My items, request, and notification visuals use the category/title icon. Check “drill machine” uses a drill, unknown titles use the category icon, a real photo replaces the icon, and Add/Edit live preview changes as title/category changes.
 4. Request your own item, then a hidden/lent item; both should be blocked. Request an available item for more than its maximum days; confirm it is rejected. Submit a second active request for the same item; confirm HTTP 409.
 5. Create overlapping pending requests from two borrowers. Accept one as owner; confirm the item becomes Lent and the overlapping pending request is automatically declined. Try accepting another overlapping request concurrently; expect HTTP 409.
@@ -130,11 +132,11 @@ Authentication and profile setup are Phase 2. Phase 3 adds item listings, local 
 8. Confirm notifications are created for each request transition, the bell shows unread counts, opening it marks all read, and it refreshes every 30 seconds. Check the Requests navigation badge for owner pending requests.
 9. Set an accepted request’s `to_date` to yesterday in the database and refresh Requests; confirm the API returns `isOverdue: true` and the card shows “Overdue”.
 
-The profile floor is stored as an integer: `0` means Basement and `1` through `5` mean Floor 1 through Floor 5. Room values are stored uppercase and must match `^[A-Z][0-9]{1,3}$`. Phase 4 adds no environment variables.
+Legacy profile location values are retained for compatibility. Current profile locations come from each community’s configured labels and member values. Phase 4 adds no environment variables.
 
 ## Phase 5: Wanted board and reputation
 
-No new environment variables are required. The API uses the existing hostel community, session, and notification configuration. Apply Phase 5 after pulling the migration:
+No new environment variables are required. The API uses the active community, session, and notification configuration. Apply Phase 5 after pulling the migration:
 
 ```sh
 npm run db:generate
@@ -143,17 +145,17 @@ npm run db:migrate
 
 The migration adds wanted categories and helper selection, makes the optional needed-by date nullable, closes wanted posts as a supported status, enforces one response per member and post, adds wanted notification targets, and timestamps ratings. In production, run `npm run db:deploy` instead of `npm run db:migrate`.
 
-Wanted feed and detail endpoints require sign-in, joining the hostel, and a complete profile. Wanted responder phone numbers are only included in the author’s detail response while a post is open, or for the selected helper after fulfillment. Feeds, non-author detail, and public reputation summaries omit phone and email. Wanted-post limits are configurable with `WANTED_CREATE_LIMIT_PER_HOUR` and `WANTED_MAX_OPEN_POSTS`; defaults are relaxed to 1000/1000 in development and remain 10/5 in production. Past needed-by dates are returned with `isExpired: true`, and expired posts cannot accept new responses.
+Wanted feed and detail endpoints require sign-in, membership in a community, and a complete profile. Wanted responder phone numbers are only included in the author’s detail response while a post is open, or for the selected helper after fulfillment. Feeds, non-author detail, and public reputation summaries omit phone and email. Wanted-post limits are configurable with `WANTED_CREATE_LIMIT_PER_HOUR` and `WANTED_MAX_OPEN_POSTS`; defaults are relaxed to 1000/1000 in development and remain 10/5 in production. Past needed-by dates are returned with `isExpired: true`, and expired posts cannot accept new responses.
 
 Ratings are one per exchange participant after the request is returned. The unique constraint blocks a second submission; no rating edit endpoint is provided. Trust score is recalculated as thumbs-up minus thumbs-down, with a floor of zero, inside the rating transaction. Reputation summaries expose only public profile fields, counts, completed lend/borrow totals, badges, and recent comments without contact details. No environment changes are needed for this phase.
 
 ### Phase 5 manual test checklist
 
-1. Sign in as one hostel member and complete the profile. Open **Wanted** and post a title, category, optional note, and optional future/today needed-by date. Confirm the post appears in **My posts** and the open board.
+1. Sign in as one community member and complete the profile. Open **Wanted** and post a title, category, optional note, and optional future/today needed-by date. Confirm the post appears in **My posts** and the open board.
 2. Start typing an item title that matches an available listing. Confirm the “Someone already listed this” suggestion appears and opens the item detail/request flow.
 3. Sign in as a second member. Open the first member’s post and respond once. Confirm the author receives a wanted notification and sees the response count increase. Attempt a second response; expect HTTP 409.
 4. Attempt to respond to your own post; expect HTTP 400. Inspect the non-author `GET /api/wanted/:id` response in F12 → Network: it must include the response count and only your own response, with no other responder list, phone, or email.
-5. As the author, open the detail. Confirm responder name, floor, room, message, and phone are visible while the post is open. Select a helper and mark fulfilled. Confirm only the selected helper’s phone remains available to the author; other responders’ phones must be absent. Close a different open post and delete a test post.
+5. As the author, open the detail. Confirm responder name, community location values, message, and phone are visible while the post is open. Select a helper and mark fulfilled. Confirm only the selected helper’s phone remains available to the author; other responders’ phones must be absent. Close a different open post and delete a test post.
 6. Set a post’s `needed_by` to yesterday in the database. Refresh the board and detail; confirm it has an `Expired` label and `isExpired: true`, and the server blocks another response.
 7. To exercise both caps in development without creating hundreds of posts, set `WANTED_MAX_OPEN_POSTS=5` and `WANTED_CREATE_LIMIT_PER_HOUR=10` in `apps/api/.env`, then restart the API. Create five open posts for one member and attempt a sixth; expect HTTP 409. Create ten posts within an hour and confirm the next post receives HTTP 429. The rate limiter is in-memory per API process, as with the existing item/request limiters.
 8. Create a borrow request and attempt to rate it before return; expect HTTP 409. Complete the return, then submit a thumbs-up or thumbs-down rating from each participant. A third member must receive HTTP 403. Submit a second rating from the same participant; expect HTTP 409.

@@ -7,7 +7,7 @@ import { NeuButton, NeuCard } from '../components/ui'
 
 const faq = [
   { question: 'Is my phone number public?', answer: 'No. Your phone number stays private. It is shared with the other person only after a borrow request is accepted, or with the author of a wanted post that is still open (and the selected helper after it is fulfilled).' },
-  { question: 'What if someone doesn’t return my item?', answer: 'Contact them through the accepted request and agree on a return plan. If you still need help, send us a note below so the hostel team can follow up.' },
+  { question: 'What if someone doesn’t return my item?', answer: 'Contact them through the accepted request and agree on a return plan. If you still need help, send us a note below so your community team can follow up.' },
   { question: 'How is trust score calculated?', answer: 'Trust score is positive ratings minus negative ratings, and it never drops below zero. You can also read recent comments and see completed lends on a member’s reputation card.' },
 ]
 
