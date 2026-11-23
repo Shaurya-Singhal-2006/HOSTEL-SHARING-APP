@@ -26,13 +26,36 @@ function addCommunityHeader(headers: Headers, path: string) {
 }
 
 export class ApiError extends Error {
-  constructor(message: string, public readonly status: number, public readonly details?: Record<string, string[]>) {
+  constructor(message: string, public readonly status: number, public readonly details?: Record<string, string[]>, public readonly code = 'REQUEST_FAILED') {
     super(message)
     this.name = 'ApiError'
   }
 }
 
 type ApiOptions = Omit<RequestInit, 'body'> & { body?: unknown }
+
+function versionedPath(path: string): string {
+  return path.startsWith('/api/') && !path.startsWith('/api/v1/') ? path.replace(/^\/api\//, '/api/v1/') : path
+}
+
+function errorPayload(payload: unknown): { message?: string; code?: string; details?: Record<string, string[]> } {
+  if (!payload || typeof payload !== 'object') return {}
+  const root = payload as { error?: unknown; details?: unknown }
+  if (root.error && typeof root.error === 'object') {
+    const error = root.error as { message?: unknown; code?: unknown; details?: unknown }
+    const details = error.details && typeof error.details === 'object' ? error.details as Record<string, string[]> : undefined
+    return {
+      message: typeof error.message === 'string' ? error.message : undefined,
+      code: typeof error.code === 'string' ? error.code : undefined,
+      details,
+    }
+  }
+  return {
+    message: typeof root.error === 'string' ? root.error : undefined,
+    code: 'REQUEST_FAILED',
+    details: root.details && typeof root.details === 'object' ? root.details as Record<string, string[]> : undefined,
+  }
+}
 
 export async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const headers = new Headers(options.headers)
@@ -42,7 +65,7 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
 
   let response: Response
   try {
-    response = await fetch(`${API_BASE}${path}`, {
+    response = await fetch(`${API_BASE}${versionedPath(path)}`, {
       ...options,
       headers,
       credentials: 'include',
@@ -57,11 +80,13 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
   const contentType = response.headers.get('content-type') ?? ''
   const payload = contentType.includes('application/json') ? await response.json() : null
   if (!response.ok) {
-    if (response.status === 404 && payload?.error === 'Community not found.') window.dispatchEvent(new CustomEvent('lendloop:community-invalid'))
+    const apiError = errorPayload(payload)
+    if (response.status === 404 && apiError.code === 'COMMUNITY_NOT_FOUND') window.dispatchEvent(new CustomEvent('lendloop:community-invalid'))
     throw new ApiError(
-      typeof payload?.error === 'string' ? payload.error : 'The request could not be completed.',
+      apiError.message ?? 'The request could not be completed.',
       response.status,
-      payload?.details,
+      apiError.details,
+      apiError.code,
     )
   }
   return payload as T
@@ -70,7 +95,7 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
 export function apiUpload<T>(path: string, body: FormData, method: 'POST' | 'PATCH', onProgress?: (percent: number) => void): Promise<T> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest()
-    request.open(method, `${API_BASE}${path}`)
+    request.open(method, `${API_BASE}${versionedPath(path)}`)
     request.withCredentials = true
     request.setRequestHeader('Accept', 'application/json')
     const communityId = communityIdForRequest(path)
@@ -85,9 +110,9 @@ export function apiUpload<T>(path: string, body: FormData, method: 'POST' | 'PAT
       let payload: unknown = null
       try { if (contentType.includes('application/json')) payload = JSON.parse(request.responseText) as unknown } catch { payload = null }
       if (request.status < 200 || request.status >= 300) {
-        const value = payload as { error?: unknown; details?: Record<string, string[]> } | null
-        if (request.status === 404 && value?.error === 'Community not found.') window.dispatchEvent(new CustomEvent('lendloop:community-invalid'))
-        reject(new ApiError(typeof value?.error === 'string' ? value.error : 'The upload could not be completed.', request.status, value?.details))
+        const value = errorPayload(payload)
+        if (request.status === 404 && value.code === 'COMMUNITY_NOT_FOUND') window.dispatchEvent(new CustomEvent('lendloop:community-invalid'))
+        reject(new ApiError(value.message ?? 'The upload could not be completed.', request.status, value.details, value.code))
         return
       }
       resolve(payload as T)

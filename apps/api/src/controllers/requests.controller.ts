@@ -61,7 +61,7 @@ export const createRequest: RequestHandler = asyncHandler(async (req, res) => {
   if (!item) throw new HttpError(404, 'Item not found.')
   if (item.ownerId === user.id) throw new HttpError(400, 'You cannot request your own item.')
   if (await prisma.userBlock.findFirst({ where: { OR: [{ blockerId: user.id, blockedId: item.ownerId }, { blockerId: item.ownerId, blockedId: user.id }] } })) throw new HttpError(403, 'This member is unavailable.')
-  if (item.status !== 'available') throw new HttpError(409, item.status === 'lent' ? 'This item is already lent out.' : 'This item is not available right now.')
+  if (item.status !== 'available') throw new HttpError(409, item.status === 'lent' ? 'This item is already lent out.' : 'This item is not available right now.', item.status === 'lent' ? 'ITEM_ALREADY_LENT' : 'ITEM_NOT_AVAILABLE')
   if (daysBetween(input.fromDate, input.toDate) > item.maxLendDays) throw new HttpError(400, `Choose no more than ${item.maxLendDays} days.`)
   let id: string
   try {
@@ -70,7 +70,7 @@ export const createRequest: RequestHandler = asyncHandler(async (req, res) => {
     const lockedItem = await tx.item.findFirst({ where: { id: item.id, communityId: user.communityId }, select: { ownerId: true, status: true, maxLendDays: true, title: true } })
     if (!lockedItem) throw new HttpError(404, 'Item not found.')
     if (lockedItem.ownerId === user.id) throw new HttpError(400, 'You cannot request your own item.')
-    if (lockedItem.status !== 'available') throw new HttpError(409, lockedItem.status === 'lent' ? 'This item is already lent out.' : 'This item is not available right now.')
+    if (lockedItem.status !== 'available') throw new HttpError(409, lockedItem.status === 'lent' ? 'This item is already lent out.' : 'This item is not available right now.', lockedItem.status === 'lent' ? 'ITEM_ALREADY_LENT' : 'ITEM_NOT_AVAILABLE')
     if (daysBetween(input.fromDate, input.toDate) > lockedItem.maxLendDays) throw new HttpError(400, `Choose no more than ${lockedItem.maxLendDays} days.`)
     const active = await tx.borrowRequest.findFirst({ where: { communityId: user.communityId, itemId: item.id, borrowerId: user.id, status: { in: ['pending', 'accepted'] } } })
     if (active) throw new HttpError(409, 'You already have an active request for this item.')
@@ -87,14 +87,14 @@ export const createRequest: RequestHandler = asyncHandler(async (req, res) => {
 })
 
 export const listRequests: RequestHandler = asyncHandler(async (req, res) => {
-  const query = z.object({ role: z.enum(['borrower', 'owner']).default('borrower'), status: statusSchema.optional() }).strict().parse(req.query)
+  const query = z.object({ role: z.enum(['borrower', 'owner']).default('borrower'), status: statusSchema.optional(), page: z.coerce.number().int().min(1).default(1), limit: z.coerce.number().int().min(1).max(50).default(20) }).strict().parse(req.query)
   const user = req.currentUser!
-  const requests = await prisma.borrowRequest.findMany({
-    where: { communityId: user.communityId, [query.role === 'borrower' ? 'borrowerId' : 'ownerId']: user.id, ...(query.status ? { status: query.status } : {}) },
-    include: includeRequest(user.communityId),
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-  })
-  res.json({ requests: requests.map((request) => serializeRequest(request, user.id)) })
+  const where = { communityId: user.communityId, [query.role === 'borrower' ? 'borrowerId' : 'ownerId']: user.id, ...(query.status ? { status: query.status } : {}) }
+  const [requests, total] = await Promise.all([
+    prisma.borrowRequest.findMany({ where, include: includeRequest(user.communityId), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (query.page - 1) * query.limit, take: query.limit }),
+    prisma.borrowRequest.count({ where }),
+  ])
+  res.json({ requests: requests.map((request) => serializeRequest(request, user.id)), pagination: { page: query.page, pageSize: query.limit, total, hasMore: query.page * query.limit < total } })
 })
 
 export const getRequest: RequestHandler = asyncHandler(async (req, res) => {

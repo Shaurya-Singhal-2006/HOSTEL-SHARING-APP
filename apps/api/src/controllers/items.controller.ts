@@ -6,36 +6,8 @@ import { asyncHandler } from '../lib/async-handler.js'
 import { HttpError } from '../lib/errors.js'
 import { prisma } from '../lib/prisma.js'
 import { deleteImages, saveImage } from '../services/storage.service.js'
-import { ITEM_CATEGORIES, sanitizeText, serializeItem, type PublicOwner } from '../services/item.service.js'
-
-const categorySchema = z.enum(ITEM_CATEGORIES)
-const conditionSchema = z.enum(['New', 'Good', 'Used'])
-const textSchema = (minimum: number, maximum: number) => z.string().transform(sanitizeText).pipe(z.string().min(minimum).max(maximum))
-const createSchema = z.object({
-  title: textSchema(2, 100),
-  description: textSchema(0, 2000).default(''),
-  category: categorySchema,
-  condition: conditionSchema.default('Good'),
-  max_lend_days: z.coerce.number().int().min(1).max(365),
-}).strict()
-const patchSchema = z.object({
-  title: textSchema(2, 100).optional(),
-  description: textSchema(0, 2000).optional(),
-  category: categorySchema.optional(),
-  condition: conditionSchema.optional(),
-  max_lend_days: z.coerce.number().int().min(1).max(365).optional(),
-  status: z.nativeEnum(ItemStatus).optional(),
-  remove_photos: z.union([z.array(z.string()), z.string()]).optional(),
-}).strict()
-const idSchema = z.string().uuid()
-const listQuerySchema = z.object({
-  search: z.string().trim().max(100).default(''),
-  category: categorySchema.optional(),
-  level1: z.string().trim().min(1).max(40).optional(),
-  floor: z.coerce.number().int().min(0).max(5).optional(),
-  available: z.enum(['true', 'false']).optional(),
-  page: z.coerce.number().int().min(1).max(10000).default(1),
-}).strict()
+import { ITEM_CATEGORIES, serializeItem, type PublicOwner } from '../services/item.service.js'
+import { createItemSchema, itemIdSchema, itemListQuerySchema, updateItemSchema } from './items.schema.js'
 
 const itemInclude = (communityId: string) => ({ owner: { select: { id: true, name: true, avatarUrl: true, memberships: { where: { communityId, status: 'active' as const }, select: { level1Value: true, level2Value: true, trustScore: true }, take: 1 } } } })
 function serializeCommunityItem(item: any, viewerId: string) {
@@ -54,7 +26,7 @@ function parseRemovePhotos(value: unknown): string[] {
 }
 
 export const listItems: RequestHandler = asyncHandler(async (req, res) => {
-  const query = listQuerySchema.parse(req.query)
+  const query = itemListQuerySchema.parse(req.query)
   const user = req.currentUser!
   const blocks = await prisma.userBlock.findMany({ where: { OR: [{ blockerId: user.id }, { blockedId: user.id }] }, select: { blockerId: true, blockedId: true } })
   const hiddenOwners = blocks.map((b) => b.blockerId === user.id ? b.blockedId : b.blockerId)
@@ -119,7 +91,7 @@ export const listItems: RequestHandler = asyncHandler(async (req, res) => {
 })
 
 export const getItem: RequestHandler = asyncHandler(async (req, res) => {
-  const id = idSchema.parse(req.params.id)
+  const id = itemIdSchema.parse(req.params.id)
   const user = req.currentUser!
   const item = await prisma.item.findFirst({
     where: { id, communityId: user.communityId, OR: [{ status: { not: 'hidden' } }, { ownerId: user.id }], owner: { memberships: { some: { communityId: user.communityId, status: 'active' } } } },
@@ -162,7 +134,7 @@ export const getPopularItems: RequestHandler = asyncHandler(async (req, res) => 
 
 export const createItem: RequestHandler = asyncHandler(async (req, res) => {
   const user = req.currentUser!
-  const input = createSchema.parse(req.body)
+  const input = createItemSchema.parse(req.body)
   const uploadedFiles = files(req)
   if (uploadedFiles.length > 3) throw new HttpError(400, 'Choose no more than 3 photos.')
   const id = randomUUID()
@@ -186,10 +158,10 @@ export const createItem: RequestHandler = asyncHandler(async (req, res) => {
 })
 
 export const updateItem: RequestHandler = asyncHandler(async (req, res) => {
-  const id = idSchema.parse(req.params.id)
+  const id = itemIdSchema.parse(req.params.id)
   const user = req.currentUser!
   const uploadedFiles = files(req)
-  const parsed = patchSchema.parse(req.body)
+  const parsed = updateItemSchema.parse(req.body)
   const removePhotos = parseRemovePhotos(parsed.remove_photos)
   const { remove_photos: _removePhotos, ...fields } = parsed
   const input = fields
@@ -230,7 +202,7 @@ export const updateItem: RequestHandler = asyncHandler(async (req, res) => {
 })
 
 export const deleteItem: RequestHandler = asyncHandler(async (req, res) => {
-  const id = idSchema.parse(req.params.id)
+  const id = itemIdSchema.parse(req.params.id)
   const user = req.currentUser!
   const existing = await prisma.item.findFirst({
     where: { id, ownerId: user.id, communityId: user.communityId },

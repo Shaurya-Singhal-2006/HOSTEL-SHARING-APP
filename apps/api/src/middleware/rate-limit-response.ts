@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express'
+import { errorResponse } from '../lib/errors.js'
 
 type RateLimitRequest = Request & { rateLimit?: { resetTime?: Date } }
 
@@ -15,6 +16,6 @@ export function rateLimitHandler(label: string, windowMs: number) {
     const resetTime = (req as RateLimitRequest).rateLimit?.resetTime
     const retryAfterSeconds = Math.max(1, Math.ceil(((resetTime?.getTime() ?? Date.now() + windowMs) - Date.now()) / 1000))
     res.setHeader('Retry-After', String(retryAfterSeconds))
-    res.status(429).json({ error: `${label} limit reached. Try again in ${retryText(retryAfterSeconds)}.`, retryAfterSeconds })
+    res.status(429).json(errorResponse('RATE_LIMITED', `${label} limit reached. Try again in ${retryText(retryAfterSeconds)}.`, { retryAfterSeconds }))
   }
 }

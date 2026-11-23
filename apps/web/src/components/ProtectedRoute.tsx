@@ -55,10 +55,10 @@ export default function ProtectedRoute({ page, children }: { page: ProtectedPage
   return <Navigate to="/login" replace />
 }
 
-export function profileComplete(name: string, community: { level1Label: string; level2Label: string; level1Options: string[]; level1Value: string | null; level2Value: string | null }): boolean {
+export function profileComplete(name: string, community: { type: string; level1Label: string; level2Label: string; level1Options: string[]; level1Value: string | null; level2Value: string | null }): boolean {
   return Boolean(name.trim() &&
     (!community.level1Label || Boolean(community.level1Value && (!community.level1Options.length || community.level1Options.includes(community.level1Value)))) &&
-    (!community.level2Label || Boolean(community.level2Value?.trim() && community.level2Value.length <= 10)))
+    (!community.level2Label || community.type === 'office' || Boolean(community.level2Value?.trim() && community.level2Value.length <= 10)))
 }
 
 function homeFor(active: ReturnType<typeof useCommunity>['active'], pending: ReturnType<typeof useCommunity>['pending']): string {

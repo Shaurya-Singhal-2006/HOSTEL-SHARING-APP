@@ -40,14 +40,14 @@ export const requireCommunity: RequestHandler = asyncHandler(async (req, _res, n
   // community context as a query parameter while still passing this membership check.
   const photoCommunityId = req.baseUrl === '/uploads' && req.method === 'GET' && typeof req.query.communityId === 'string' ? req.query.communityId : undefined
   const id = (req.get('X-Community-Id') ?? photoCommunityId)?.trim()
-  if (!id) throw new HttpError(400, 'Select a community with the X-Community-Id header.')
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) throw new HttpError(404, 'Community not found.')
+  if (!id) throw new HttpError(400, 'Select a community with the X-Community-Id header.', 'COMMUNITY_HEADER_REQUIRED')
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) throw new HttpError(404, 'Community not found.', 'COMMUNITY_NOT_FOUND')
   const member = await prisma.communityMember.findFirst({
     where: { communityId: id, userId: user.id, status: 'active', community: { isActive: true } },
-    include: { community: { select: { id: true, name: true, level1Label: true, level2Label: true, level1Options: true, joinMode: true } } },
+    include: { community: { select: { id: true, name: true, type: true, level1Label: true, level2Label: true, level1Options: true, joinMode: true } } },
   })
-  if (!member) throw new HttpError(404, 'Community not found.')
-  if (req.params.id && req.params.id !== id) throw new HttpError(404, 'Community not found.')
+  if (!member) throw new HttpError(404, 'Community not found.', 'COMMUNITY_NOT_FOUND')
+  if (req.params.id && req.params.id !== id) throw new HttpError(404, 'Community not found.', 'COMMUNITY_NOT_FOUND')
   req.activeCommunity = member.community
   req.communityMember = { id: member.id, role: member.role, status: member.status, level1Value: member.level1Value, level2Value: member.level2Value, trustScore: member.trustScore }
   // Compatibility for existing controllers during the frontend transition.
@@ -63,7 +63,7 @@ export const requireCompleteProfile: RequestHandler = (req, _res, next) => {
   const community = req.activeCommunity
   const member = req.communityMember
   const level1Required = Boolean(community?.level1Label)
-  const level2Required = Boolean(community?.level2Label)
+  const level2Required = Boolean(community?.level2Label) && community?.type !== 'office'
   const complete = Boolean(user?.name.trim() && member &&
     (!level1Required || (member.level1Value && community!.level1Options.includes(member.level1Value))) &&
     (!level2Required || (member.level2Value && member.level2Value.trim().length <= 10)))

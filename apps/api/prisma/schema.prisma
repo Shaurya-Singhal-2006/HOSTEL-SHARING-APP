@@ -99,6 +99,7 @@ model Community {
   notifications  Notification[]
   feedback       Feedback[]
   reports        Report[]
+  auditLogs      AuditLog[]
 
   @@map("communities")
 }
@@ -151,6 +152,7 @@ model User {
   ratingsTo   Rating[]         @relation("RatingTo")
   feedback    Feedback[]
   reports     Report[]         @relation("ReportReporter")
+  auditLogs   AuditLog[]
   blocksMade  UserBlock[]      @relation("UserBlocksMade")
   blocksReceived UserBlock[]   @relation("UserBlocksReceived")
   @@index([communityId])
@@ -307,6 +309,23 @@ model Feedback {
   @@index([createdAt(sort: Desc)])
   @@index([communityId])
   @@map("feedback")
+}
+
+model AuditLog {
+  id          String    @id @default(uuid()) @db.Uuid
+  communityId String    @map("community_id") @db.Uuid
+  actorId     String    @map("actor_id") @db.Uuid
+  action      String    @db.VarChar(80)
+  targetType  String    @map("target_type") @db.VarChar(40)
+  targetId    String?   @map("target_id") @db.VarChar(80)
+  metadata    Json?
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Restrict)
+  actor       User      @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([communityId, createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+  @@map("audit_logs")
 }
 
 model Report {

@@ -1,31 +1,22 @@
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto'
 import type { RequestHandler } from 'express'
-import { CommunityJoinMode, CommunityMemberRole, CommunityMemberStatus, CommunityType, Prisma } from '@prisma/client'
+import { CommunityMemberStatus, Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { asyncHandler } from '../lib/async-handler.js'
 import { HttpError } from '../lib/errors.js'
 import { prisma } from '../lib/prisma.js'
 import { env } from '../config/env.js'
-import { sanitizeText } from '../services/item.service.js'
+import { communityIdSchema, communityProfileSchema, createCommunitySchema, joinCommunitySchema, updateCommunitySchema } from './communities.schema.js'
+import { recordAdminAction } from '../services/audit.service.js'
 
-const uuid = z.string().uuid()
 const inviteCode = () => randomBytes(4).toString('hex').toUpperCase()
-const text = (min: number, max: number) => z.string().transform(sanitizeText).pipe(z.string().min(min).max(max))
-const createSchema = z.object({
-  name: text(2, 80), type: z.nativeEnum(CommunityType), description: z.string().max(500).optional().transform((v) => v ? sanitizeText(v) : null),
-  labels: z.object({ level1: z.string().max(30).optional(), level2: z.string().max(30).optional() }).optional(),
-  level1Options: z.array(z.string().trim().min(1).max(40)).max(50).optional(),
-  joinMode: z.nativeEnum(CommunityJoinMode).default('open_with_code'), icon: z.string().max(40).optional(), accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
-}).strict()
-const joinSchema = z.object({ inviteCode: z.string().trim().min(1).max(32), level1: z.string().trim().max(40).optional(), level2: z.string().trim().max(10).optional(), acceptGuidelines: z.literal(true) }).strict()
-const profileSchema = z.object({ level1: z.string().trim().max(40).nullable().optional(), level2: z.string().trim().max(10).nullable().optional() }).strict().refine((v) => Object.keys(v).length > 0)
-const adminSchema = z.object({ name: text(2, 80).optional(), description: z.string().max(500).nullable().optional().transform((v) => typeof v === 'string' ? sanitizeText(v) : v), joinMode: z.nativeEnum(CommunityJoinMode).optional(), level1Label: z.string().trim().min(1).max(30).optional(), level2Label: z.string().trim().min(1).max(30).optional(), level1Options: z.array(z.string().trim().min(1).max(40)).max(50).optional(), icon: z.string().max(40).nullable().optional(), accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional() }).strict()
-const safeMemberSelect = { user: { select: { id: true, name: true, avatarUrl: true, email: true } } } as const
+// Community member listings are public within a community; never select or return private email addresses.
+const safeMemberSelect = { user: { select: { id: true, name: true, avatarUrl: true } } } as const
 const equalCode = (a: string, b: string) => timingSafeEqual(createHash('sha256').update(a.trim().toUpperCase()).digest(), createHash('sha256').update(b.trim().toUpperCase()).digest())
 const assertAdmin = (req: import('express').Request) => { if (req.communityMember?.role !== 'admin') throw new HttpError(403, 'Community admin access required.') }
 
 export const createCommunity: RequestHandler = asyncHandler(async (req, res) => {
-  const input = createSchema.parse(req.body)
+  const input = createCommunitySchema.parse(req.body)
   const userId = req.currentUser!.id
   const count = await prisma.communityMember.count({ where: { userId, role: 'admin', status: 'active' } })
   if (count >= env.COMMUNITY_MAX_ADMIN_COMMUNITIES) throw new HttpError(409, `You can administer up to ${env.COMMUNITY_MAX_ADMIN_COMMUNITIES} communities. Leave or transfer one before creating another.`)
@@ -38,14 +29,19 @@ export const createCommunity: RequestHandler = asyncHandler(async (req, res) => 
 })
 
 export const myCommunities: RequestHandler = asyncHandler(async (req, res) => {
-  const memberships = await prisma.communityMember.findMany({ where: { userId: req.currentUser!.id }, include: { community: { select: { id: true, name: true, type: true, description: true, icon: true, accentColor: true, level1Label: true, level2Label: true, level1Options: true, joinMode: true, isActive: true, _count: { select: { members: { where: { status: 'active' } } } } } } }, orderBy: { joinedAt: 'desc' } })
-  res.json({ communities: memberships.filter((m) => m.community.isActive).map((m) => ({ ...m.community, memberCount: m.community._count.members, _count: undefined, role: m.role, status: m.status, level1Value: m.level1Value, level2Value: m.level2Value })) })
+  const query = z.object({ page: z.coerce.number().int().min(1).default(1), limit: z.coerce.number().int().min(1).max(50).default(20) }).strict().parse(req.query)
+  const where = { userId: req.currentUser!.id, community: { isActive: true } }
+  const [memberships, total] = await Promise.all([
+    prisma.communityMember.findMany({ where, include: { community: { select: { id: true, name: true, type: true, description: true, icon: true, accentColor: true, level1Label: true, level2Label: true, level1Options: true, joinMode: true, isActive: true, _count: { select: { members: { where: { status: 'active' } } } } } } }, orderBy: { joinedAt: 'desc' }, skip: (query.page - 1) * query.limit, take: query.limit }),
+    prisma.communityMember.count({ where }),
+  ])
+  res.json({ communities: memberships.map((m) => ({ ...m.community, memberCount: m.community._count.members, _count: undefined, role: m.role, status: m.status, level1Value: m.level1Value, level2Value: m.level2Value })), pagination: { page: query.page, pageSize: query.limit, total, hasMore: query.page * query.limit < total } })
 })
 
 export const joinCommunity: RequestHandler = asyncHandler(async (req, res) => {
-  const input = joinSchema.parse(req.body)
+  const input = joinCommunitySchema.parse(req.body)
   const id = req.get('X-Community-Id')
-  if (id && !uuid.safeParse(id).success) throw new HttpError(404, 'Community or invite code not found.')
+  if (id && !communityIdSchema.safeParse(id).success) throw new HttpError(404, 'Community or invite code not found.')
   const community = id
     ? await prisma.community.findFirst({ where: { id, isActive: true } })
     : await prisma.community.findUnique({ where: { inviteCode: input.inviteCode.trim().toUpperCase() } })
@@ -75,35 +71,48 @@ export const getCommunity: RequestHandler = asyncHandler(async (req, res) => {
 })
 export const updateCommunity: RequestHandler = asyncHandler(async (req, res) => {
   assertAdmin(req)
-  const patch = adminSchema.parse(req.body)
+  const patch = updateCommunitySchema.parse(req.body)
   const community = await prisma.community.update({ where: { id: req.activeCommunity!.id }, data: patch })
   res.json({ community })
 })
 export const regenerateInvite: RequestHandler = asyncHandler(async (req, res) => {
   assertAdmin(req)
-  const community = await prisma.community.update({ where: { id: req.activeCommunity!.id }, data: { inviteCode: inviteCode() }, select: { id: true, inviteCode: true } })
+  const community = await prisma.$transaction(async (tx) => {
+    const updated = await tx.community.update({ where: { id: req.activeCommunity!.id }, data: { inviteCode: inviteCode() }, select: { id: true, inviteCode: true } })
+    await recordAdminAction(tx, { communityId: updated.id, actorId: req.currentUser!.id, action: 'regenerate_invite_code', targetType: 'community', targetId: updated.id })
+    return updated
+  })
   res.json({ community })
 })
 export const listMembers: RequestHandler = asyncHandler(async (req, res) => {
-  const status = req.communityMember!.role === 'admin' ? undefined : 'active'
-  const members = await prisma.communityMember.findMany({ where: { communityId: req.activeCommunity!.id, ...(status ? { status } : {}) }, include: safeMemberSelect, orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }] })
-  res.json({ members: members.map((m) => ({ id: m.id, userId: m.userId, name: m.user.name, avatarUrl: m.user.avatarUrl, email: req.communityMember!.role === 'admin' ? m.user.email : undefined, role: m.role, status: m.status, level1Value: m.level1Value, level2Value: m.level2Value, trustScore: m.trustScore, joinedAt: m.joinedAt })) })
+  const query = z.object({ page: z.coerce.number().int().min(1).default(1), limit: z.coerce.number().int().min(1).max(100).default(50) }).strict().parse(req.query)
+  const status = req.communityMember!.role === 'admin' ? undefined : CommunityMemberStatus.active
+  const where: Prisma.CommunityMemberWhereInput = { communityId: req.activeCommunity!.id, ...(status ? { status } : {}) }
+  const [members, total] = await Promise.all([
+    prisma.communityMember.findMany({ where, include: safeMemberSelect, orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }], skip: (query.page - 1) * query.limit, take: query.limit }),
+    prisma.communityMember.count({ where }),
+  ])
+  res.json({ members: members.map((m) => ({ id: m.id, userId: m.userId, name: m.user.name, avatarUrl: m.user.avatarUrl, role: m.role, status: m.status, level1Value: m.level1Value, level2Value: m.level2Value, trustScore: m.trustScore, joinedAt: m.joinedAt })), pagination: { page: query.page, pageSize: query.limit, total, hasMore: query.page * query.limit < total } })
 })
 export const changeMember: RequestHandler = asyncHandler(async (req, res) => {
   assertAdmin(req)
-  const targetId = uuid.parse(req.params.userId)
+  const targetId = communityIdSchema.parse(req.params.userId)
   const action = z.object({ action: z.enum(['approve', 'reject', 'remove', 'promote', 'demote']) }).strict().parse(req.body).action
   const communityId = req.activeCommunity!.id
   const target = await prisma.communityMember.findUnique({ where: { communityId_userId: { communityId, userId: targetId } } })
   if (!target) throw new HttpError(404, 'Community member not found.')
-  if (action === 'approve' && target.status === 'pending') await prisma.communityMember.update({ where: { id: target.id }, data: { status: 'active' } })
-  else if (action === 'reject' || action === 'remove') await prisma.communityMember.update({ where: { id: target.id }, data: { status: 'removed' } })
-  else if (action === 'promote' || action === 'demote') await prisma.communityMember.update({ where: { id: target.id }, data: { role: action === 'promote' ? 'admin' : 'member' } })
-  else throw new HttpError(409, 'That membership action is not available.')
+  if (action === 'approve' && target.status !== 'pending') throw new HttpError(409, 'That membership action is not available.')
+  await prisma.$transaction(async (tx) => {
+    if (action === 'approve') await tx.communityMember.update({ where: { id: target.id }, data: { status: 'active' } })
+    else if (action === 'reject' || action === 'remove') await tx.communityMember.update({ where: { id: target.id }, data: { status: 'removed' } })
+    else if (action === 'promote' || action === 'demote') await tx.communityMember.update({ where: { id: target.id }, data: { role: action === 'promote' ? 'admin' : 'member' } })
+    else throw new HttpError(409, 'That membership action is not available.')
+    await recordAdminAction(tx, { communityId, actorId: req.currentUser!.id, action: `member_${action}`, targetType: 'user', targetId })
+  })
   res.json({ ok: true })
 })
 export const updateCommunityProfile: RequestHandler = asyncHandler(async (req, res) => {
-  const patch = profileSchema.parse(req.body)
+  const patch = communityProfileSchema.parse(req.body)
   const community = req.activeCommunity!
   if (patch.level1 !== undefined && patch.level1 && community.level1Options.length && !community.level1Options.includes(patch.level1)) throw new HttpError(400, `Choose a valid ${community.level1Label}.`)
   const member = await prisma.communityMember.update({ where: { communityId_userId: { communityId: community.id, userId: req.currentUser!.id } }, data: { ...(patch.level1 === undefined ? {} : { level1Value: patch.level1 }), ...(patch.level2 === undefined ? {} : { level2Value: patch.level2 }) } })

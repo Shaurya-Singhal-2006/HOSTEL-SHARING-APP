@@ -21,7 +21,7 @@ export default function OnboardingPage() {
       submitLabel="Save and continue"
       onSave={async (values) => {
         const result = await apiRequest<{ user: CurrentUser }>('/api/me', { method: 'PATCH', body: { name: values.name, phone: values.phone || null } })
-        if (community.active && (community.active.level1Label || community.active.level2Label)) await apiRequest(`/api/communities/${community.active.id}/me`, { method: 'PATCH', body: { ...(community.active.level1Label ? { level1: values.floor } : {}), ...(community.active.level2Label ? { level2: values.room } : {}) } })
+        if (community.active && (community.active.level1Label || community.active.level2Label)) await apiRequest(`/api/communities/${community.active.id}/me`, { method: 'PATCH', body: { ...(community.active.level1Label ? { level1: values.floor } : {}), ...(community.active.level2Label ? { level2: values.room.trim() || null } : {}) } })
         queryClient.setQueryData(ME_QUERY_KEY, result.user)
         await community.refresh()
         navigate('/tour', { replace: true })

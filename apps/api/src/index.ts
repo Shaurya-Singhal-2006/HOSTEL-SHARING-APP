@@ -1,6 +1,7 @@
 import { app } from './app.js'
 import { env } from './config/env.js'
 import { prisma } from './lib/prisma.js'
+import { logger } from './lib/logger.js'
 
 async function start() {
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -15,26 +16,36 @@ async function start() {
         timer.unref?.()
       }),
     ])
-    console.info('[api] Database connection established.')
+    logger.info({ event: 'database_connected' }, 'Database connection established')
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error)
-    console.error(`[api] Could not connect to the database. Check DATABASE_URL and ensure PostgreSQL is running. ${detail}`)
+    const errorName = error instanceof Error ? error.name : 'UnknownError'
+    logger.error({ event: 'database_connection_failed', errorName }, 'Postgres is not running or the DATABASE_URL is wrong')
+    await prisma.$disconnect().catch(() => undefined)
     process.exit(1)
   } finally {
     if (timer) clearTimeout(timer)
   }
 
   const server = app.listen(env.PORT, () => {
-    console.info(`LendLoop API listening on ${env.API_ORIGIN}`)
+    logger.info({ event: 'server_listening', port: env.PORT }, 'LendLoop API listening')
   })
   server.on('error', (error: NodeJS.ErrnoException) => {
-    console.error(`[api] Could not start on port ${env.PORT}: ${error.message}`)
+    logger.error({ event: 'server_start_failed', port: env.PORT, errorCode: error.code }, 'Could not start API server')
     process.exit(1)
   })
 
+  let shuttingDown = false
   async function shutdown() {
-    server.close()
-    await prisma.$disconnect()
+    if (shuttingDown) return
+    shuttingDown = true
+    logger.info({ event: 'shutdown_started' }, 'Shutting down API')
+    const forceExit = setTimeout(() => process.exit(1), 10_000)
+    forceExit.unref()
+    server.close(async () => {
+      await prisma.$disconnect()
+      clearTimeout(forceExit)
+      process.exit(0)
+    })
   }
 
   process.on('SIGINT', () => void shutdown())

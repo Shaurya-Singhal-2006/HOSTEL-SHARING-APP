@@ -102,7 +102,7 @@ export const getWanted: RequestHandler = asyncHandler(async (req, res) => {
   if (!post) throw new HttpError(404, 'Wanted post not found.')
   const isAuthor = post.authorId === user.id
   const responses = isAuthor ? await prisma.wantedResponse.findMany({ where: { wantedPostId: id, communityId: user.communityId }, include: { responder: { select: { id: true, name: true, phone: true, memberships: { where: { communityId: user.communityId, status: 'active' }, select: { level1Value: true, level2Value: true, trustScore: true }, take: 1 } } } }, orderBy: { createdAt: 'asc' } }) : post.responses
-  const visibleResponses = isAuthor ? responses.map((response: any) => ({ id: response.id, message: response.message, createdAt: response.createdAt, responder: { ...publicAuthor(response.responder), ...(post.status === 'open' || (post.status === 'fulfilled' && post.helperId === response.responderId) ? { phone: response.responder.phone } : {}) } })) : []
+  const visibleResponses = isAuthor ? responses.map((response: any) => ({ id: response.id, message: response.message, createdAt: response.createdAt, responder: { ...publicAuthor(response.responder), ...(post.status === 'fulfilled' && post.helperId === response.responderId ? { phone: response.responder.phone } : {}) } })) : []
   res.json({ post: { ...serializePost({ ...post, responses: post.responses }, user.id), responses: visibleResponses, myResponse: isAuthor ? null : (post.responses[0] ? { id: post.responses[0].id, message: post.responses[0].message, createdAt: post.responses[0].createdAt } : null) } })
 })
 

@@ -267,6 +267,10 @@ h1, h2, h3 { font-family: 'Inter', 'Inter', sans-serif; }
 .auth-card--status .auth-error { margin: 15px 0 20px; }
 .auth-card--status .neu-button { width: 100%; }
 .auth-back-link { display: inline-block; margin-top: 15px; color: var(--accent); font-size: calc(var(--font-scale) * max(14px, 11px)); }
+.demo-login { display: grid; gap: 10px; margin-top: 14px; }
+.demo-login__picker { display: grid; gap: 8px; }
+.demo-login__picker button { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 12px; }
+.demo-login__picker small { color: var(--text-muted); }
 .profile-screen { min-height: 100vh; padding: 0 5vw 64px; background: var(--bg); }
 .profile-screen--in-app { min-height: 0; padding: 0; background: transparent; }
 .profile-screen--in-app .profile-content { width: 100%; margin-top: 37px; }

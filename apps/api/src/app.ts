@@ -8,6 +8,7 @@ import { prisma } from './lib/prisma.js'
 import { asyncHandler } from './lib/async-handler.js'
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js'
 import { requestTimeout } from './middleware/request-timeout.js'
+import { requestContext } from './middleware/request-context.js'
 import { authRouter } from './routes/auth.routes.js'
 import { meRouter } from './routes/me.routes.js'
 import { itemsRouter } from './routes/items.routes.js'
@@ -21,13 +22,25 @@ import { ratingsRouter } from './routes/ratings.routes.js'
 import { feedbackRouter } from './routes/feedback.routes.js'
 import { communitiesRouter } from './routes/communities.routes.js'
 import { blocksRouter, reportsRouter } from './routes/safety.routes.js'
+import { openApiDocument } from './lib/openapi.js'
 
 export const app = express()
 
 app.disable('x-powered-by')
 app.set('trust proxy', isProduction ? 1 : false)
+app.use(requestContext)
 app.use(requestTimeout)
-app.use(helmet())
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'none'"],
+      baseUri: ["'none'"],
+      frameAncestors: ["'none'"],
+      formAction: ["'self'"],
+      imgSrc: ["'self'", 'data:'],
+    },
+  },
+}))
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || webOrigins.includes(origin)) return callback(null, true)
@@ -39,7 +52,11 @@ app.use(express.json({ limit: '1mb' }))
 app.use(cookieParser())
 app.use('/uploads', requireAuth, requireCommunity, requireItemPhotoMembership, uploadsStatic)
 
-app.get('/api/health', asyncHandler(async (_req, res) => {
+const livenessHandler = (_req: import('express').Request, res: import('express').Response) => {
+  res.json({ status: 'ok', service: 'lendloop-api' })
+}
+
+const readinessHandler = asyncHandler(async (_req, res) => {
   let timeout: ReturnType<typeof setTimeout> | undefined
   try {
     await Promise.race([
@@ -56,19 +73,25 @@ app.get('/api/health', asyncHandler(async (_req, res) => {
   } finally {
     if (timeout) clearTimeout(timeout)
   }
-}))
-app.use('/api/auth', authRouter)
-app.use('/api/me', meRouter)
-app.use('/api/communities', communitiesRouter)
-app.use('/api/reports', reportsRouter)
-app.use('/api/blocks', blocksRouter)
-app.use('/api/items', itemsRouter)
-app.use('/api/categories', categoriesRouter)
-app.use('/api/requests', requestsRouter)
-app.use('/api/notifications', notificationsRouter)
-app.use('/api/wanted', wantedRouter)
-app.use('/api/ratings', ratingsRouter)
-app.use('/api/feedback', feedbackRouter)
+})
+
+for (const prefix of ['/api', '/api/v1']) {
+  app.get(`${prefix}/health`, livenessHandler)
+  app.get(`${prefix}/ready`, readinessHandler)
+  if (prefix === '/api' && env.NODE_ENV === 'development') app.get('/api/docs', (_req, res) => res.json(openApiDocument))
+  app.use(`${prefix}/auth`, authRouter)
+  app.use(`${prefix}/me`, meRouter)
+  app.use(`${prefix}/communities`, communitiesRouter)
+  app.use(`${prefix}/reports`, reportsRouter)
+  app.use(`${prefix}/blocks`, blocksRouter)
+  app.use(`${prefix}/items`, itemsRouter)
+  app.use(`${prefix}/categories`, categoriesRouter)
+  app.use(`${prefix}/requests`, requestsRouter)
+  app.use(`${prefix}/notifications`, notificationsRouter)
+  app.use(`${prefix}/wanted`, wantedRouter)
+  app.use(`${prefix}/ratings`, ratingsRouter)
+  app.use(`${prefix}/feedback`, feedbackRouter)
+}
 
 app.use(notFoundHandler)
 app.use(errorHandler)
