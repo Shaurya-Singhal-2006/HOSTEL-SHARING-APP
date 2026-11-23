@@ -38,7 +38,7 @@ function serializeRequest(request: any, viewerId: string) {
     status: request.status,
     isOverdue: request.status === 'accepted' && request.toDate < dateValue(todayUtc()),
     createdAt: request.createdAt,
-    other: { id: other.id, name: other.name, floor, room: membership?.level2Value ?? null, ...(request.status === 'accepted' ? { phone: other.phone } : {}) },
+    other: { id: other.id, name: other.name, floor, room: membership?.level2Value ?? null, level1Value: membership?.level1Value ?? null, level2Value: membership?.level2Value ?? null, ...(request.status === 'accepted' ? { phone: other.phone } : {}) },
     isBorrower: request.borrowerId === viewerId,
     myRated: request.ratings?.some((rating: any) => rating.fromUserId === viewerId) ?? false,
     otherRated: request.ratings?.some((rating: any) => rating.fromUserId === other.id) ?? false,
@@ -61,7 +61,7 @@ export const createRequest: RequestHandler = asyncHandler(async (req, res) => {
   if (!item) throw new HttpError(404, 'Item not found.')
   if (item.ownerId === user.id) throw new HttpError(400, 'You cannot request your own item.')
   if (await prisma.userBlock.findFirst({ where: { OR: [{ blockerId: user.id, blockedId: item.ownerId }, { blockerId: item.ownerId, blockedId: user.id }] } })) throw new HttpError(403, 'This member is unavailable.')
-  if (item.status !== 'available') throw new HttpError(409, 'This item is not available right now.')
+  if (item.status !== 'available') throw new HttpError(409, item.status === 'lent' ? 'This item is already lent out.' : 'This item is not available right now.')
   if (daysBetween(input.fromDate, input.toDate) > item.maxLendDays) throw new HttpError(400, `Choose no more than ${item.maxLendDays} days.`)
   let id: string
   try {
@@ -70,7 +70,7 @@ export const createRequest: RequestHandler = asyncHandler(async (req, res) => {
     const lockedItem = await tx.item.findFirst({ where: { id: item.id, communityId: user.communityId }, select: { ownerId: true, status: true, maxLendDays: true, title: true } })
     if (!lockedItem) throw new HttpError(404, 'Item not found.')
     if (lockedItem.ownerId === user.id) throw new HttpError(400, 'You cannot request your own item.')
-    if (lockedItem.status !== 'available') throw new HttpError(409, 'This item is not available right now.')
+    if (lockedItem.status !== 'available') throw new HttpError(409, lockedItem.status === 'lent' ? 'This item is already lent out.' : 'This item is not available right now.')
     if (daysBetween(input.fromDate, input.toDate) > lockedItem.maxLendDays) throw new HttpError(400, `Choose no more than ${lockedItem.maxLendDays} days.`)
     const active = await tx.borrowRequest.findFirst({ where: { communityId: user.communityId, itemId: item.id, borrowerId: user.id, status: { in: ['pending', 'accepted'] } } })
     if (active) throw new HttpError(409, 'You already have an active request for this item.')

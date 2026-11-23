@@ -9,6 +9,8 @@ import ProfileEditor from '../components/ProfileEditor'
 import { NeuAvatar, NeuButton, NeuCard } from '../components/ui'
 import { formatCommunityLocation } from '../items/location'
 import { NeuBadge } from '../components/ui'
+import ThemeToggle from '../components/ThemeToggle'
+import TextSizeControl from '../components/TextSizeControl'
 
 function safeAvatar(url: string | null): string | null {
   if (!url) return null
@@ -68,6 +70,11 @@ export default function ProfilePage() {
           />
         </NeuCard>
       </div>
+      <NeuCard className="profile-preferences">
+        <div><h2>Display and reading</h2><p>Choose the colors and text size that feel comfortable.</p></div>
+        <ThemeToggle />
+        <TextSizeControl />
+      </NeuCard>
     </div>
   </div>
 }

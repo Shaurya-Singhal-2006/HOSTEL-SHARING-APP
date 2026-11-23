@@ -20,6 +20,8 @@ import AppShell from './components/AppShell'
 import RequestsPage from './pages/RequestsPage'
 import TourPage from './pages/TourPage'
 import HelpPage from './pages/HelpPage'
+import { ThemeProvider } from './components/ThemeProvider'
+import './theme.css'
 import './styles.css'
 
 const queryClient = new QueryClient({
@@ -30,7 +32,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <AuthProvider>
+        <ThemeProvider><AuthProvider>
           <CommunityProvider><Routes>
             <Route path="/design" element={<DesignPage />} />
             <Route path="/login" element={<ProtectedRoute page="login"><LoginPage /></ProtectedRoute>} />
@@ -53,7 +55,7 @@ function App() {
             <Route path="/items/:id" element={<ProtectedRoute page="app"><AppShell><ItemDetailPage /></AppShell></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes></CommunityProvider>
-        </AuthProvider>
+        </AuthProvider></ThemeProvider>
       </BrowserRouter>
     </QueryClientProvider>
   )
@@ -62,3 +64,9 @@ function App() {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode><App /></React.StrictMode>,
 )
+
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js')
+  })
+}

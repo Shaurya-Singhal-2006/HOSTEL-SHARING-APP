@@ -8,9 +8,9 @@ import { ME_QUERY_KEY, type CurrentUser, useAuth } from '../auth/AuthProvider'
 import { NeuButton, NeuCard } from '../components/ui'
 
 const steps = [
-  { title: 'List what you own', description: 'Add a photo or use the item icon. Neighbours can find it when they need it.', icon: PackagePlus, action: 'You can add an item any time' },
+  { title: 'Share what you own', description: 'Add a photo or use the item icon. Neighbours can find it when they need it.', icon: PackagePlus, action: 'You can add an item any time' },
   { title: 'Borrow what you need', description: 'Check what is available nearby and ask the owner for a few days.', icon: Search, action: 'Agree on pickup and return together' },
-  { title: 'Ask the hostel if nobody has it', description: 'Post on Wanted. Someone down the hall may have exactly what you need.', icon: HeartHandshake, action: 'You can respond when you can help' },
+  { title: 'Ask your community', description: 'Post a request. Someone nearby may already have what you need.', icon: HeartHandshake, action: 'You can respond when you can help' },
 ]
 
 export default function TourPage() {

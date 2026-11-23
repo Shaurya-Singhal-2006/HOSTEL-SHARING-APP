@@ -78,7 +78,7 @@ export const createWanted: RequestHandler = asyncHandler(async (req, res) => {
       await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT id FROM users WHERE id = ${user.id}::uuid FOR UPDATE`)
       const openCount = await tx.wantedPost.count({ where: { communityId: user.communityId, authorId: user.id, status: 'open' } })
       if (openCount >= env.WANTED_MAX_OPEN_POSTS) {
-        throw new HttpError(409, `You can have up to ${env.WANTED_MAX_OPEN_POSTS} open wanted posts.`)
+        throw new HttpError(409, `You already have ${env.WANTED_MAX_OPEN_POSTS} open wanted posts. Close one before posting another.`)
       }
       return tx.wantedPost.create({ data: { authorId: user.id, communityId: user.communityId, title: input.title, category: input.category, note: input.note ?? '', neededBy: input.neededBy ? day(input.neededBy) : null }, include: { author: { select: authorSelect(user.communityId) }, ...responseCount, responses: { where: { responderId: user.id }, select: { responderId: true } } } })
     })

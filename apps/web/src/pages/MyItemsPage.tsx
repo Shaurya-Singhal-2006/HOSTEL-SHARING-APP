@@ -18,7 +18,7 @@ export default function MyItemsPage() {
     <div className="section-heading"><div><p className="section-kicker">YOUR SHARED THINGS</p><h1>My items</h1><p>Keep your listings current and easy to find.</p></div><Link to="/items/new" className="neu-button neu-button--primary"><PackagePlus size={16} />Add item</Link></div>
     {itemsQuery.isPending && <div className="my-items-grid">{[0, 1, 2].map((index) => <NeuCard className="my-item-card" key={index}><NeuSkeleton className="listing-card__skeleton-photo" /><NeuSkeleton /></NeuCard>)}</div>}
     {itemsQuery.isError && <NeuCard className="state-panel"><h2>Your listings didn’t load</h2><p>{itemsQuery.error.message}</p><NeuButton variant="primary" onClick={() => { void itemsQuery.refetch() }}>Try again</NeuButton></NeuCard>}
-    {itemsQuery.isSuccess && items.length === 0 && <NeuCard className="state-panel"><NeuEmptyState title="Your shelf is still empty" description="List a tool, kitchen item, or anything else your hostel neighbours might need." action={<Link to="/items/new" className="neu-button neu-button--primary"><PackagePlus size={16} />Add your first item</Link>} /></NeuCard>}
+    {itemsQuery.isSuccess && items.length === 0 && <NeuCard className="state-panel"><NeuEmptyState title="Your shelf is still empty" description="Share an item your neighbours could use." action={<Link to="/items/new" className="neu-button neu-button--primary"><PackagePlus size={16} />Add your first item</Link>} /></NeuCard>}
     {items.length > 0 && <div className="my-items-grid">{items.map((item) => <MyItemCard item={item} key={item.id} onChanged={() => queryClient.invalidateQueries({ queryKey: ['items'] })} />)}</div>}
   </div>
 }

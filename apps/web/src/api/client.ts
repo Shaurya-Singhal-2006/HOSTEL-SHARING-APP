@@ -40,12 +40,20 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
   headers.set('Accept', 'application/json')
   addCommunityHeader(headers, path)
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-  })
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new ApiError('LendLoop took too long to respond. Please try again.', 504)
+    }
+    throw new ApiError("We can't reach LendLoop right now. Check your connection and try again.", 0)
+  }
   const contentType = response.headers.get('content-type') ?? ''
   const payload = contentType.includes('application/json') ? await response.json() : null
   if (!response.ok) {
@@ -70,7 +78,7 @@ export function apiUpload<T>(path: string, body: FormData, method: 'POST' | 'PAT
     request.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100))
     }
-    request.onerror = () => reject(new ApiError('Could not reach the server. Check your connection and try again.', 0))
+    request.onerror = () => reject(new ApiError("We can't reach LendLoop right now. Check your connection and try again.", 0))
     request.onabort = () => reject(new ApiError('The upload was cancelled.', 0))
     request.onload = () => {
       const contentType = request.getResponseHeader('content-type') ?? ''

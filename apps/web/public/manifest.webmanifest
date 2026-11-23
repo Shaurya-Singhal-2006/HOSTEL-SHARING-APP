@@ -1,0 +1,9 @@
+{
+  "name": "LendLoop — Hostel sharing",
+  "short_name": "LendLoop",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#e6eef7",
+  "theme_color": "#e6eef7",
+  "description": "Borrow what you need. Share what you have."
+}

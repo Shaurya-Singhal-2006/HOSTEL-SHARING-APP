@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useId, useState } from 'react'
-import { Home, Plus, UserRound, ClipboardList, HeartHandshake, X } from 'lucide-react'
+import { CircleAlert, CircleCheck, CircleDot, Clock3, Home, Plus, UserRound, ClipboardList, HeartHandshake, X } from 'lucide-react'
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
 
 type Classed = { className?: string }
@@ -58,7 +58,7 @@ export function NeuBottomNav({ active = 'Home' }: { active?: string }) {
   const links = [
     { name: 'Home', icon: Home, href: '#home' },
     { name: 'Wanted', icon: HeartHandshake, href: '#wanted' },
-    { name: 'Add item', icon: Plus, href: '#add' },
+    { name: 'Share', icon: Plus, href: '#add' },
     { name: 'Requests', icon: ClipboardList, href: '#requests' },
     { name: 'Profile', icon: UserRound, href: '#profile' },
   ]
@@ -82,7 +82,8 @@ export function NeuAvatar({ name, size = 'md', src }: { name: string; size?: 'sm
 }
 
 export function NeuBadge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'success' | 'warning' | 'danger' }) {
-  return <span className={`neu-badge neu-badge--${tone}`}><span className="neu-badge__dot" aria-hidden="true" />{children}</span>
+  const StatusIcon = tone === 'success' ? CircleCheck : tone === 'warning' ? Clock3 : tone === 'danger' ? CircleAlert : CircleDot
+  return <span className={`neu-badge neu-badge--${tone}`}><StatusIcon className="neu-badge__icon" size={14} aria-hidden="true" />{children}</span>
 }
 
 export function NeuSkeleton({ className = '', label = 'Loading' }: Classed & { label?: string }) {

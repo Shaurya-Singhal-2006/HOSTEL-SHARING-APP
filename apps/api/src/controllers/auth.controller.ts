@@ -1,6 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { RequestHandler } from 'express'
-import { env } from '../config/env.js'
+import { env, webOrigin } from '../config/env.js'
 import { asyncHandler } from '../lib/async-handler.js'
 import { HttpError } from '../lib/errors.js'
 import { z } from 'zod'
@@ -47,7 +47,7 @@ export const googleCallback: RequestHandler = asyncHandler(async (req, res) => {
     throw new HttpError(400, 'Google sign-in could not be verified. Please try again.')
   }
   if (error) {
-    return res.redirect(`${env.WEB_ORIGIN}/login?error=google_cancelled`)
+    return res.redirect(`${webOrigin}/login?error=google_cancelled`)
   }
 
   if (!code) throw new HttpError(400, 'Google did not return a sign-in code.')
@@ -66,7 +66,7 @@ export const googleCallback: RequestHandler = asyncHandler(async (req, res) => {
     avatarUrl: payload.picture ?? null,
   })
   setSessionCookie(res, issueSession(user.id))
-  return res.redirect(`${env.WEB_ORIGIN}/auth/callback`)
+  return res.redirect(`${webOrigin}/auth/callback`)
 })
 
 export const logout: RequestHandler = (_req, res) => {

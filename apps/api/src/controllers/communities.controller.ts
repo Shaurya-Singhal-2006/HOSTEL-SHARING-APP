@@ -28,7 +28,7 @@ export const createCommunity: RequestHandler = asyncHandler(async (req, res) => 
   const input = createSchema.parse(req.body)
   const userId = req.currentUser!.id
   const count = await prisma.communityMember.count({ where: { userId, role: 'admin', status: 'active' } })
-  if (count >= 3) throw new HttpError(409, 'You can administer up to three communities.')
+  if (count >= env.COMMUNITY_MAX_ADMIN_COMMUNITIES) throw new HttpError(409, `You can administer up to ${env.COMMUNITY_MAX_ADMIN_COMMUNITIES} communities. Leave or transfer one before creating another.`)
   const community = await prisma.$transaction(async (tx) => {
     const c = await tx.community.create({ data: { name: input.name, type: input.type, description: input.description, inviteCode: inviteCode(), createdBy: userId, joinMode: input.joinMode, icon: input.icon, accentColor: input.accentColor, level1Label: input.labels?.level1 ?? '', level2Label: input.labels?.level2 ?? '', level1Options: input.level1Options ?? [] } })
     await tx.communityMember.create({ data: { communityId: c.id, userId, role: 'admin', status: 'active', acceptedGuidelinesAt: new Date() } })

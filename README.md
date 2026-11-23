@@ -65,8 +65,11 @@ API variables in `apps/api/.env`:
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL connection string |
 | `PORT` | API listen port, default 4000 |
-| `WEB_ORIGIN` | Exact frontend origin allowed by CORS |
+| `WEB_ORIGIN` | Comma-separated frontend origins allowed by CORS (for local testing, `http://localhost:5173,http://127.0.0.1:5173`) |
 | `API_ORIGIN` | Public API origin used to construct Google’s callback URI |
+| `API_REQUEST_TIMEOUT_MS` | Maximum API request duration before a 504 response; defaults to 15000 ms |
+| `API_HEALTH_TIMEOUT_MS` | Database health-query timeout; defaults to 2500 ms |
+| `DATABASE_STARTUP_TIMEOUT_MS` | Database connection check timeout before startup fails; defaults to 10000 ms |
 | `API_PUBLIC_URL` | Public API origin used for local image URLs; defaults to `http://localhost:4000` |
 | `UPLOAD_DIR` | API local-disk image directory; defaults to `./uploads` |
 | `GOOGLE_CLIENT_ID` | Google OAuth web client ID |

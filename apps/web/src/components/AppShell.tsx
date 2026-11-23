@@ -8,6 +8,7 @@ import NotificationBell from './NotificationBell'
 import { useQuery } from '@tanstack/react-query'
 import { apiRequest } from '../api/client'
 import { useCommunity } from '../auth/CommunityProvider'
+import ThemeToggle from './ThemeToggle'
 
 const links = [
   { label: 'Home', to: '/', icon: Home, end: true },
@@ -45,7 +46,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <Link className="sidebar-person" to="/profile"><NeuAvatar name={user.name} size="sm" src={user.avatarUrl} /><span><strong>{user.name}</strong><small>{formatCommunityLocation(active, active) || 'Your profile'}</small></span></Link>
     </aside>
     <main className="app-main">
-      <header className="app-topbar"><CommunitySwitcher activeId={active?.id ?? ''} communities={communities.filter((item) => item.status === 'active')} role={role} onChange={setActive} compact /><div className="app-topbar__profile"><Link className="topbar-help" to="/help" aria-label="Help and answers" title="Help and answers"><CircleHelp size={19}/></Link><NotificationBell /><span>Welcome, {name}</span><NeuAvatar name={user.name} size="sm" src={user.avatarUrl} /></div></header>
+      <header className="app-topbar"><CommunitySwitcher activeId={active?.id ?? ''} communities={communities.filter((item) => item.status === 'active')} role={role} onChange={setActive} compact /><div className="app-topbar__profile"><ThemeToggle compact/><Link className="topbar-help" to="/help" aria-label="Help and answers" title="Help and answers"><CircleHelp size={19}/><span>? Help</span></Link><NotificationBell /><span>Welcome, {name}</span><NeuAvatar name={user.name} size="sm" src={user.avatarUrl} /></div></header>
       <div className="app-content">{children}</div>
     </main>
     <div className="app-mobile-nav"><Navigation mobile /></div>

@@ -4,6 +4,7 @@ import {
   NeuAvatar, NeuBadge, NeuBottomNav, NeuButton, NeuCard, NeuChip, NeuEmptyState,
   NeuInput, NeuModal, NeuSkeleton, NeuToggle,
 } from '../components/ui'
+import ThemeToggle from '../components/ThemeToggle'
 
 export default function DesignPage() {
   const [available, setAvailable] = useState(true)
@@ -19,7 +20,7 @@ export default function DesignPage() {
     </aside>
 
     <main id="top" className="design-main">
-      <header className="topbar"><span className="community-label"><span className="community-indicator" />LendLoop Hostel</span><div className="topbar__profile"><span>Good afternoon, Aarav</span><NeuAvatar name="Aarav Mehta" /></div></header>
+      <header className="topbar"><span className="community-label"><span className="community-indicator" />LendLoop Hostel</span><div className="topbar__profile"><ThemeToggle compact /><span>Good afternoon, Aarav</span><NeuAvatar name="Aarav Mehta" /></div></header>
 
       <section className="welcome-row">
         <div><p className="page-overline">YOUR HOSTEL, A LITTLE CLOSER</p><h1>Borrow a little.<br /><span>Share a lot.</span></h1><p className="welcome-copy">Find the useful things already living just down the hall.</p></div>
@@ -64,7 +65,7 @@ export default function DesignPage() {
             <NeuCard className="item-preview"><div className="item-visual" aria-label="Illustrated outline of a cordless drill"><div className="drill-shape"><span className="drill-bit" /><span className="drill-body" /><span className="drill-handle" /><span className="drill-grip" /></div><span className="visual-caption">TOOLS · 01</span></div><div className="item-copy"><div className="item-topline"><NeuBadge tone="success">Available</NeuBadge><button className="icon-button favorite-button" aria-label="Save cordless drill"><span>♡</span></button></div><h3>Cordless drill</h3><p>Great for quick fixes around the room.</p><div className="item-owner"><NeuAvatar name="Rohan Das" size="sm" /><span>Rohan <small>· Floor 3</small></span><span className="item-distance">2 floors away</span></div><NeuButton variant="primary" className="full-button">Ask to borrow <ArrowUpRight size={16} /></NeuButton></div></NeuCard>
           </section>
           <section className="rail-section"><div className="rail-heading"><h2>More components</h2></div>
-            <NeuCard className="component-card mini-components"><div className="component-title"><div><span className="component-index">11</span><h3>Loading</h3></div></div><div className="skeleton-row"><NeuSkeleton className="skeleton-thumb" /><div className="skeleton-lines"><NeuSkeleton /><NeuSkeleton className="short" /></div></div><p className="helper-caption">A calm pause while the shelf loads.</p><div className="mini-rule" /><div className="component-title"><div><span className="component-index">12</span><h3>Empty state</h3></div></div><NeuEmptyState title="Nothing here yet" description="Try another search or post what you need." action={<NeuButton variant="primary" icon={<Plus size={16} />}>Post a wanted item</NeuButton>} /></NeuCard>
+              <NeuCard className="component-card mini-components"><div className="component-title"><div><span className="component-index">11</span><h3>Loading</h3></div></div><div className="skeleton-row"><NeuSkeleton className="skeleton-thumb" /><div className="skeleton-lines"><NeuSkeleton /><NeuSkeleton className="short" /></div></div><p className="helper-caption">A calm pause while the shelf loads.</p><div className="mini-rule" /><div className="component-title"><div><span className="component-index">12</span><h3>Empty state</h3></div></div><NeuEmptyState title="Nothing here yet" description="Open the dialog preview to see an example." action={<NeuButton variant="primary" icon={<Plus size={16} />} onClick={() => setModalOpen(true)}>Preview dialog</NeuButton>} /></NeuCard>
           </section>
           <NeuCard className="modal-demo"><div><p className="section-kicker">13 / FOCUSED MOMENT</p><h3>Dialog</h3><p>For a decision that needs a little focus.</p></div><NeuButton className="modal-trigger" onClick={() => setModalOpen(true)}>Preview dialog <ArrowUpRight size={15} /></NeuButton></NeuCard>
         </aside>

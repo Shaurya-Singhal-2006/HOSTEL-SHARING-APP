@@ -4,16 +4,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        surface: 'var(--bg)', raised: 'var(--bg-raised)',
-        ink: 'var(--text)', muted: 'var(--text-muted)', accent: 'var(--accent)',
+        canvas: 'var(--bg)', surface: 'var(--surface)', raised: 'var(--bg-raised)',
+        ink: 'var(--text)', muted: 'var(--text-muted)', accent: 'var(--primary)',
+        aqua: 'var(--accent-aqua)', warm: 'var(--accent-warm)',
         success: 'var(--success)', warning: 'var(--warning)', danger: 'var(--danger)',
       },
       fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+      backgroundImage: { primary: 'var(--primary-gradient)' },
       boxShadow: {
-        neu: '8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light)',
-        'neu-sm': '4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light)',
-        inset: 'inset 6px 6px 12px var(--shadow-dark), inset -6px -6px 12px var(--shadow-light)',
-        'inset-sm': 'inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light)',
+        neu: 'var(--shadow-card)', 'neu-button': 'var(--shadow-button)', inset: 'var(--shadow-inset)',
       },
     },
   },

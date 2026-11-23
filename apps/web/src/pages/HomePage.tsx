@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { ArrowRight, HeartHandshake, PackagePlus, Search, SlidersHorizontal } from 'lucide-react'
+import { ArrowRight, Box, HeartHandshake, PackagePlus, Search, SlidersHorizontal } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { apiRequest } from '../api/client'
 import ItemCard from '../components/ItemCard'
@@ -43,14 +43,15 @@ export default function HomePage() {
   const hasBrowseFilter=Boolean(debouncedSearch||category!=='All items'||available||floor)
 
   return <div className="home-page">
-    <section className="home-quick-actions" aria-label="Quick actions">
-      <a href="#browse-controls" className="quick-action"><span><Search size={21}/></span><strong>Find something</strong><small>Search items people can lend</small><ArrowRight size={15}/></a>
-      <Link to="/items/new" className="quick-action"><span><PackagePlus size={21}/></span><strong>Share something</strong><small>Add an item to the shelf</small><ArrowRight size={15}/></Link>
-      <Link to="/wanted" state={{ openCreate: true }} className="quick-action"><span><HeartHandshake size={21}/></span><strong>Ask for something</strong><small>Post what you need</small><ArrowRight size={15}/></Link>
-    </section>
     <section className="home-hero">
-      <div><p className="page-overline">YOUR HOSTEL, A LITTLE CLOSER</p><h1>Borrow a little.<br /><span>Share a lot.</span></h1><p>Find the useful things already living just down the hall.</p></div>
-      <div className="home-hero__art" aria-hidden="true"><span /><span /><span><Search size={24} /></span></div>
+      <div><p className="page-overline">YOUR HOSTEL, A LITTLE CLOSER</p><h1>Borrow a little.<br /><span>Share a lot.</span></h1><p>Find the useful things already living just down the hall.</p>
+        <div className="home-quick-actions" aria-label="Quick actions">
+          <a href="#browse-controls" className="quick-action quick-action--find"><span><Search size={21}/></span><strong>Find something</strong><small>Search items people can lend</small><ArrowRight size={15}/></a>
+          <Link to="/items/new" className="quick-action quick-action--share"><span><PackagePlus size={21}/></span><strong>Share something</strong><small>Add an item to the shelf</small><ArrowRight size={15}/></Link>
+          <Link to="/wanted" state={{ openCreate: true }} className="quick-action quick-action--ask"><span><HeartHandshake size={21}/></span><strong>Ask for something</strong><small>Post what you need</small><ArrowRight size={15}/></Link>
+        </div>
+      </div>
+      <div className="home-hero__art" aria-hidden="true"><span /><span /><span><Box size={28} /></span></div>
     </section>
 
     <section id="browse-controls" className="browse-controls" aria-label="Find something to borrow">
@@ -59,7 +60,7 @@ export default function HomePage() {
     </section>
 
     <section className="home-listings" aria-labelledby="listings-heading">
-      <div className="section-heading"><div><p className="section-kicker">SHARED AROUND THE HOSTEL</p><h2 id="listings-heading">On the shelf</h2></div><Link to="/my-items" className="text-link">My items <ArrowRight size={15} /></Link></div>
+      <div className="section-heading"><div><p className="section-kicker">SHARED AROUND THE HOSTEL</p><h2 id="listings-heading">On the shelf</h2></div></div>
       <div className="category-row" aria-label="Categories">
         {['All items', ...ITEM_CATEGORIES].map((value) => <NeuChip key={value} selected={category === value} onClick={() => setCategory(value)}>{value}</NeuChip>)}
       </div>

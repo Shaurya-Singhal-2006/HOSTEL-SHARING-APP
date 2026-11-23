@@ -4,24 +4,25 @@ import { Check, CheckCircle2, Circle, Package, RotateCcw, ThumbsDown, ThumbsUp, 
 import { apiRequest } from '../api/client'
 import ItemVisual from '../components/ItemVisual'
 import { NeuBadge, NeuButton, NeuCard, NeuChip, NeuEmptyState, NeuModal, NeuSkeleton } from '../components/ui'
-import { formatLocation } from '../items/location'
+import { formatCommunityLocation, formatLocation } from '../items/location'
 import ReputationButton from '../components/ReputationButton'
 import { Link } from 'react-router-dom'
 import { useCommunity } from '../auth/CommunityProvider'
+import Celebration from '../components/Celebration'
 
 type RequestData = {
   id: string; item: { id: string; title: string; category: string; photos: Array<{ path: string; url: string; thumbnailUrl: string }> }
   fromDate: string; toDate: string; note: string; declineReason: string | null
   status: 'pending' | 'accepted' | 'declined' | 'cancelled' | 'returned'; isOverdue: boolean
-  other: { id: string; name: string; floor: number | null; room: string | null; phone?: string | null; trustScore?: number }; isBorrower: boolean; myRated:boolean; otherRated:boolean
+  other: { id: string; name: string; floor: number | null; room: string | null; level1Value?: string | null; level2Value?: string | null; phone?: string | null; trustScore?: number }; isBorrower: boolean; myRated:boolean; otherRated:boolean
 }
 type Role = 'borrower' | 'owner'
 const filters = ['All', 'Waiting for reply', 'Accepted', 'Returned', 'Not going ahead'] as const
-const flowSteps = [{label:'Requested',icon:CheckCircle2},{label:'Accepted',icon:CheckCircle2},{label:'Picked up',icon:Package},{label:'Returned',icon:RotateCcw}]
+const flowSteps = [{label:'Asked',icon:CheckCircle2},{label:'Accepted',icon:CheckCircle2},{label:'Picked up',icon:Package},{label:'Returned',icon:RotateCcw}]
 
-function requestMessage(request:RequestData) {
+function requestMessage(request:RequestData & { location: string }) {
   if(request.status==='pending')return request.isBorrower?`Waiting for ${request.other.name} to say yes.`:'Please choose Say yes or Say no.'
-  if(request.status==='accepted')return `Agree on pickup together. Please return it by ${shortDate(request.toDate)}.`
+  if(request.status==='accepted')return `Accepted. Pick it up from ${request.location} and return it by ${shortDate(request.toDate)}.`
   if(request.status==='returned')return 'This item has been marked as returned. Thanks for sharing.'
   if(request.status==='declined')return 'This request was declined, so the borrow will not go ahead.'
   if(request.status==='cancelled')return 'This request was cancelled, so the borrow will not go ahead.'
@@ -43,7 +44,7 @@ export default function RequestsPage() {
     <div className="request-filter-row">{filters.map((value) => <NeuChip key={value} selected={filter === value} onClick={() => setFilter(value)}>{value}</NeuChip>)}</div>
     {query.isPending && <div className="request-list">{[0, 1, 2].map((id) => <NeuCard className="request-card" key={id}><NeuSkeleton className="request-card__visual" /><NeuSkeleton /><NeuSkeleton /></NeuCard>)}</div>}
     {query.isError && <NeuCard className="state-panel"><h2>Requests didn’t load</h2><p>{query.error.message}</p><NeuButton variant="primary" onClick={() => { void query.refetch() }}>Try again</NeuButton></NeuCard>}
-    {query.isSuccess && requests.length === 0 && <NeuCard className="state-panel"><NeuEmptyState title={query.data?.length?'Nothing in this group yet':'No requests yet'} description={query.data?.length?'Try another filter to see more requests.':role==='borrower'?'Find something useful your neighbours have listed.':'Requests to borrow your items will appear here.'} action={<Link to={role==='borrower'?'/':'/items/new'} className="neu-button neu-button--primary">{role==='borrower'?'Find something':'List an item'}</Link>} /></NeuCard>}
+    {query.isSuccess && requests.length === 0 && <NeuCard className="state-panel"><NeuEmptyState title={query.data?.length?'Nothing in this group yet':'No requests yet'} description={query.data?.length?'No requests match this filter. See all your requests.':role==='borrower'?'Find something useful to borrow.':'Share an item so neighbours can ask to borrow it.'} action={query.data?.length?<NeuButton variant="primary" onClick={()=>setFilter('All')}>See all requests</NeuButton>:<Link to={role==='borrower'?'/':'/items/new'} className="neu-button neu-button--primary">{role==='borrower'?'Find something':'Share an item'}</Link>} /></NeuCard>}
     {requests.length > 0 && <div className="request-list">{requests.map((request) => <RequestCard key={request.id} request={request} />)}</div>}
   </div>
 }
@@ -52,23 +53,27 @@ function RequestCard({ request }: { request: RequestData }) {
   const client = useQueryClient()
   const [declineOpen, setDeclineOpen] = useState(false)
   const [reason, setReason] = useState('')
+  const [celebrate, setCelebrate] = useState(false)
   const [rating,setRating]=useState<boolean|null>(null);const [comment,setComment]=useState('')
   const action = useMutation({
     mutationFn: ({ name, body }: { name: string; body?: unknown }) => apiRequest(`/api/requests/${request.id}/${name}`, { method: 'PATCH', ...(body === undefined ? {} : { body }) }),
-    onSuccess: async () => { await Promise.all([client.invalidateQueries({ queryKey: ['requests'] }), client.invalidateQueries({ queryKey: ['items'] }), client.invalidateQueries({ queryKey: ['notifications'] })]); setDeclineOpen(false) },
+    onSuccess: async (_result, variables) => { await Promise.all([client.invalidateQueries({ queryKey: ['requests'] }), client.invalidateQueries({ queryKey: ['items'] }), client.invalidateQueries({ queryKey: ['notifications'] })]); setDeclineOpen(false); if (variables.name === 'accept' || variables.name === 'return') setCelebrate(true) },
   })
   const rate=useMutation({mutationFn:()=>apiRequest('/api/ratings',{method:'POST',body:{requestId:request.id,thumbsUp:rating,comment:comment||undefined}}),onSuccess:async()=>{await client.invalidateQueries({queryKey:['requests']});await client.invalidateQueries({queryKey:['reputation',request.other.id]})}})
-  const location = formatLocation(request.other.floor, request.other.room)
+  const { active } = useCommunity()
+  const location = formatCommunityLocation({ level1Value: request.other.level1Value ?? null, level2Value: request.other.level2Value ?? null }, active) || formatLocation(request.other.floor, request.other.room)
+  const requestWithLocation = { ...request, location }
   const statusTone = request.status === 'accepted' || request.status === 'returned' ? 'success' : request.status === 'declined' || request.status === 'cancelled' ? 'neutral' : 'warning'
   const phoneDigits = request.other.phone?.replace(/[^+0-9]/g, '') ?? ''
   return <NeuCard as="article" className="request-card">
+    <Celebration active={celebrate} onDone={() => setCelebrate(false)} />
     <div className="request-card__visual"><ItemVisual item={request.item} size="compact" /></div>
     <div className="request-card__body">
       <div className="request-card__top"><NeuBadge tone={statusTone}>{statusLabel(request)}</NeuBadge>{request.isOverdue && <NeuBadge tone="danger">Overdue — past return date</NeuBadge>}</div>
       <h2>{request.item.title}</h2>
       <p className="request-card__dates">{shortDate(request.fromDate)} – {shortDate(request.toDate)}</p>
       <RequestProgress request={request}/>
-      <p className="request-explanation">{requestMessage(request)}</p>
+      <p className="request-explanation">{requestMessage(requestWithLocation)}</p>
       <p className="request-card__other">{request.isBorrower ? 'Owner' : 'Requested by'}: <strong><ReputationButton userId={request.other.id} name={request.other.name}/></strong><span>{location}</span></p>
       {request.note && <p className="request-card__note">“{request.note}”</p>}
       {request.declineReason && <p className="request-card__note">Reason: {request.declineReason}</p>}
